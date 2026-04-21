@@ -3,32 +3,31 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Master Secure Admin</title>
+    <title>Smart Movie Admin</title>
     <style>
         body { font-family: 'Segoe UI', sans-serif; background: #1a202c; color: #e2e8f0; padding: 20px; }
-        .container { max-width: 800px; margin: auto; background: #2d3748; padding: 30px; border-radius: 12px; box-shadow: 0 10px 25px rgba(0,0,0,0.3); }
+        .container { max-width: 800px; margin: auto; background: #2d3748; padding: 30px; border-radius: 12px; }
         h2 { text-align: center; color: #63b3ed; }
         .section { background: #3c4858; padding: 20px; border-radius: 8px; margin-bottom: 20px; border-left: 4px solid #63b3ed; }
-        label { display: block; margin: 10px 0 5px; font-size: 14px; font-weight: bold; color: #cbd5e0; }
+        label { display: block; margin: 10px 0 5px; font-weight: bold; color: #cbd5e0; }
         input, textarea, select { width: 100%; padding: 12px; border-radius: 6px; border: 1px solid #4a5568; background: #1a202c; color: white; box-sizing: border-box; margin-bottom: 10px; }
         .grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; }
         button { width: 100%; padding: 15px; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; transition: 0.2s; }
         .btn-add { background: #38a169; color: white; margin-bottom: 10px; }
         .btn-save { background: #3182ce; color: white; }
-        .link-info { background: #2c5282; padding: 15px; border-radius: 8px; margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center; }
-        .copy-btn { width: auto; padding: 8px 12px; background: #4a5568; font-size: 12px; margin: 0; color: white; }
+        .link-info { background: #2c5282; padding: 15px; border-radius: 8px; margin-bottom: 20px; font-size: 13px; }
         .status { text-align: center; margin-top: 15px; font-weight: bold; }
     </style>
 </head>
 <body>
 
 <div class="container">
-    <h2>🔒 Secure Admin Center</h2>
+    <h2>🚀 Smart Admin Center</h2>
     
     <label>Admin Password:</label>
-    <input type="password" id="adminPass" placeholder="ဒီနေရာမှာ Password ရိုက်မှ Data တွေပေါ်လာမှာပါ" oninput="loadData()">
+    <input type="password" id="adminPass" placeholder="Enter password" oninput="loadData()">
 
-    <label>Category (Genre) ရွေးပါ:</label>
+    <label>Category (Genre):</label>
     <select id="genre" onchange="loadData()">
         <option value="">-- ရွေးချယ်ပါ --</option>
         <option value="jav-mmsub">Jav Mmsub</option>
@@ -42,72 +41,55 @@
     </select>
 
     <div class="link-info">
-        <span id="urlText" style="font-size:12px; word-break:break-all;">Category အရင်ရွေးပါ...</span>
-        <button id="copyBtn" class="copy-btn" onclick="copyUrl()" style="display:none;">Copy Link</button>
+        <div><strong>Main Raw Link (See More အတွက်):</strong> <span id="urlMain" style="color: #63b3ed;">-</span></div>
+        <div style="margin-top: 10px;"><strong>Show Link (Home အတွက် - နောက်ဆုံး ၈ ကား):</strong> <span id="urlShow" style="color: #63b3ed;">-</span></div>
     </div>
 
     <div class="section">
-        <h4>+ Add New Movie</h4>
+        <h4>+ Add New Movie (ထိပ်ဆုံးသို့ ရောက်မည်)</h4>
         <input type="text" id="mTitle" placeholder="ဇာတ်ကားအမည်">
         <div class="grid">
-            <input type="text" id="mPhoto1" placeholder="Photo 1 (Poster)">
-            <input type="text" id="mPhoto2" placeholder="Photo 2 (Landscape)">
-            <input type="text" id="mHD" placeholder="Video Link (Direct/Dropbox)">
+            <input type="text" id="mPhoto1" placeholder="Photo 1">
+            <input type="text" id="mPhoto2" placeholder="Photo 2">
+            <input type="text" id="mHD" placeholder="Video Link">
         </div>
-        <textarea id="mDesc" rows="3" placeholder="ဇာတ်လမ်းအညွှန်း..."></textarea>
+        <textarea id="mDesc" rows="3" placeholder="အညွှန်း"></textarea>
         <div class="grid">
-            <input type="text" id="mRate" placeholder="Rating (e.g. 7.8)">
-            <input type="text" id="mYear" placeholder="Year (e.g. 2023)">
-            <input type="text" id="mTime" placeholder="Time (e.g. 106)">
+            <input type="text" id="mRate" placeholder="Rating">
+            <input type="text" id="mYear" placeholder="Year">
+            <input type="text" id="mTime" placeholder="Time">
         </div>
-        <button class="btn-add" onclick="addToJson()">Add to List</button>
+        <button class="btn-add" onclick="addToJson()">Add to Top</button>
     </div>
 
     <div class="section">
-        <h4>Manual JSON Editor (Password မှန်မှ Data ပေါ်မည်)</h4>
-        <textarea id="jsonData" rows="12"></textarea>
+        <h4>Manual Editor</h4>
+        <textarea id="jsonData" rows="10"></textarea>
         <button class="btn-save" onclick="saveAll()">Save All Changes</button>
     </div>
     <div id="status" class="status"></div>
 </div>
 
 <script>
-    let currentUrl = "";
-
     async function loadData() {
         const genre = document.getElementById('genre').value;
         const password = document.getElementById('adminPass').value;
-        
         if(!genre) return;
-        
-        currentUrl = `${window.location.origin}/api?genre=${genre}`;
-        document.getElementById('urlText').innerText = currentUrl;
-        document.getElementById('copyBtn').style.display = "block";
 
-        if(!password) {
-            showStatus("Enter password to view/edit data.", "orange");
-            return;
-        }
+        const base = window.location.origin;
+        document.getElementById('urlMain').innerText = `${base}/api?genre=${genre}`;
+        document.getElementById('urlShow').innerText = `${base}/api?genre=${genre}-show`;
+
+        if(!password) return;
 
         try {
-            // Password ပါတွဲပို့ပြီး data ကို လှမ်းယူမယ်
-            const res = await fetch(`${currentUrl}&pass=${password}`);
+            const res = await fetch(`${base}/api?genre=${genre}&pass=${password}`);
             if(res.ok) {
                 const data = await res.json();
                 document.getElementById('jsonData').value = JSON.stringify(data, null, 2);
-                showStatus("Data Loaded Successfully!", "lime");
-            } else {
-                showStatus("Access Denied: Wrong Password?", "red");
-                document.getElementById('jsonData').value = "[]";
+                showStatus("Data Loaded", "lime");
             }
-        } catch (e) {
-            showStatus("Error loading data.", "red");
-        }
-    }
-
-    function copyUrl() {
-        navigator.clipboard.writeText(currentUrl);
-        alert("Link Copied!");
+        } catch (e) { showStatus("Error loading data", "red"); }
     }
 
     function addToJson() {
@@ -121,10 +103,17 @@
             year: document.getElementById('mYear').value || undefined,
             time: document.getElementById('mTime').value || undefined
         };
+        
         let currentData = JSON.parse(document.getElementById('jsonData').value || "[]");
-        currentData.push(movie);
+        
+        // unshift သုံးပြီး ရှေ့ဆုံးကနေ ထည့်မယ်
+        currentData.unshift(movie); 
+        
         document.getElementById('jsonData').value = JSON.stringify(currentData, null, 2);
-        showStatus("Added to list. Don't forget to SAVE!", "yellow");
+        showStatus("Added to top! Click SAVE to confirm.", "yellow");
+        
+        // Form ရှင်းမယ်
+        ['mTitle', 'mPhoto1', 'mPhoto2', 'mHD', 'mDesc', 'mRate', 'mYear', 'mTime'].forEach(id => document.getElementById(id).value = "");
     }
 
     async function saveAll() {
@@ -132,21 +121,16 @@
         const data = document.getElementById('jsonData').value;
         const password = document.getElementById('adminPass').value;
 
-        if(!genre || !password) { alert("Genre and Password are required!"); return; }
+        if(!genre || !password) { alert("Need Genre and Pass!"); return; }
 
         showStatus("Saving...", "orange");
-        try {
-            const res = await fetch('/update', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ genre, data, password })
-            });
+        const res = await fetch('/update', {
+            method: 'POST',
+            body: JSON.stringify({ genre, data, password })
+        });
 
-            if(res.ok) showStatus("Updated Successfully! ✅", "lime");
-            else showStatus("Save Failed: Check Password! ❌", "red");
-        } catch (e) {
-            showStatus("Error: " + e.message, "red");
-        }
+        if(res.ok) showStatus("Successfully Updated! ✅", "lime");
+        else showStatus("Update Failed! ❌", "red");
     }
 
     function showStatus(t, c) {
