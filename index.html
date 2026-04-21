@@ -3,67 +3,67 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Smart Movie Admin</title>
+    <title>Movie Admin Pro</title>
     <style>
-        body { font-family: 'Segoe UI', sans-serif; background: #1a202c; color: #e2e8f0; padding: 20px; }
-        .container { max-width: 800px; margin: auto; background: #2d3748; padding: 30px; border-radius: 12px; }
-        h2 { text-align: center; color: #63b3ed; }
-        .section { background: #3c4858; padding: 20px; border-radius: 8px; margin-bottom: 20px; border-left: 4px solid #63b3ed; }
-        label { display: block; margin: 10px 0 5px; font-weight: bold; color: #cbd5e0; }
-        input, textarea, select { width: 100%; padding: 12px; border-radius: 6px; border: 1px solid #4a5568; background: #1a202c; color: white; box-sizing: border-box; margin-bottom: 10px; }
-        .grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; }
-        button { width: 100%; padding: 15px; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; transition: 0.2s; }
-        .btn-add { background: #38a169; color: white; margin-bottom: 10px; }
+        body { font-family: sans-serif; background: #1a202c; color: #e2e8f0; padding: 15px; }
+        .container { max-width: 800px; margin: auto; background: #2d3748; padding: 20px; border-radius: 12px; }
+        input, textarea, select { width: 100%; padding: 12px; border-radius: 6px; border: 1px solid #4a5568; background: #1a202c; color: white; box-sizing: border-box; margin-bottom: 10px; font-size: 14px; }
+        .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+        .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; }
+        button { width: 100%; padding: 15px; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; margin-top: 10px; }
+        .btn-add { background: #38a169; color: white; }
         .btn-save { background: #3182ce; color: white; }
-        .link-info { background: #2c5282; padding: 15px; border-radius: 8px; margin-bottom: 20px; font-size: 13px; }
-        .status { text-align: center; margin-top: 15px; font-weight: bold; }
+        .section { background: #3c4858; padding: 15px; border-radius: 8px; margin-bottom: 20px; border-left: 5px solid #63b3ed; }
+        .status { text-align: center; margin-top: 10px; font-weight: bold; }
     </style>
 </head>
 <body>
 
 <div class="container">
-    <h2>🚀 Smart Admin Center</h2>
+    <h2 style="text-align:center;color:#63b3ed;">🎬 Movie Admin Panel</h2>
     
     <label>Admin Password:</label>
-    <input type="password" id="adminPass" placeholder="Enter password" oninput="loadData()">
+    <input type="password" id="adminPass" placeholder="Password ရိုက်ပါ" oninput="loadData()">
 
-    <label>Category (Genre):</label>
-    <select id="genre" onchange="loadData()">
-        <option value="">-- ရွေးချယ်ပါ --</option>
+    <label>Category:</label>
+    <select id="genreSelect" onchange="loadData()">
+        <option value="">-- ရွေးပါ --</option>
         <option value="jav-mmsub">Jav Mmsub</option>
-        <option value="jav-nosub">Jav Nosub</option>
         <option value="usa-mmsub">USA Mmsub</option>
-        <option value="usa-nosub">USA Nosub</option>
         <option value="chinese-mmsub">Chinese Mmsub</option>
-        <option value="chinese-nosub">Chinese Nosub</option>
         <option value="yoteshin">Yoteshin</option>
-        <option value="ads-notice">Ads & Notice</option>
     </select>
 
-    <div class="link-info">
-        <div><strong>Main Raw Link (See More အတွက်):</strong> <span id="urlMain" style="color: #63b3ed;">-</span></div>
-        <div style="margin-top: 10px;"><strong>Show Link (Home အတွက် - နောက်ဆုံး ၈ ကား):</strong> <span id="urlShow" style="color: #63b3ed;">-</span></div>
-    </div>
-
     <div class="section">
-        <h4>+ Add New Movie (ထိပ်ဆုံးသို့ ရောက်မည်)</h4>
-        <input type="text" id="mTitle" placeholder="ဇာတ်ကားအမည်">
+        <h4>+ ဇာတ်ကားအသစ်ထည့်ရန်</h4>
+        <input type="text" id="mTitle" placeholder="Title (Required)">
+        
         <div class="grid">
-            <input type="text" id="mPhoto1" placeholder="Photo 1">
-            <input type="text" id="mPhoto2" placeholder="Photo 2">
-            <input type="text" id="mHD" placeholder="Video Link">
+            <input type="text" id="mPhoto1" placeholder="Photo 1 (Poster)">
+            <input type="text" id="mPhoto2" placeholder="Photo 2 (Landscape)">
         </div>
-        <textarea id="mDesc" rows="3" placeholder="အညွှန်း"></textarea>
-        <div class="grid">
-            <input type="text" id="mRate" placeholder="Rating">
-            <input type="text" id="mYear" placeholder="Year">
-            <input type="text" id="mTime" placeholder="Time">
+
+        <textarea id="mDesc" rows="5" placeholder="Description"></textarea>
+
+        <div class="grid-3">
+            <input type="text" id="mRate" placeholder="Rating (Optional)">
+            <input type="text" id="mYear" placeholder="Year (Optional)">
+            <input type="text" id="mTime" placeholder="Time (Optional)">
         </div>
+
+        <div class="grid-3">
+            <input type="text" id="mHD" placeholder="Video URL (HD)">
+            <input type="text" id="mQuality" placeholder="Quality (Optional)">
+            <input type="text" id="mSize" placeholder="Size (Optional)">
+        </div>
+
+        <input type="text" id="mTags" placeholder="Genre Tags (ဥပမာ- Action, Sci-fi)">
+
         <button class="btn-add" onclick="addToJson()">Add to Top</button>
     </div>
 
     <div class="section">
-        <h4>Manual Editor</h4>
+        <h4>Manual Editor (JSON Data)</h4>
         <textarea id="jsonData" rows="10"></textarea>
         <button class="btn-save" onclick="saveAll()">Save All Changes</button>
     </div>
@@ -72,56 +72,50 @@
 
 <script>
     async function loadData() {
-        const genre = document.getElementById('genre').value;
-        const password = document.getElementById('adminPass').value;
-        if(!genre) return;
-
-        const base = window.location.origin;
-        document.getElementById('urlMain').innerText = `${base}/api?genre=${genre}`;
-        document.getElementById('urlShow').innerText = `${base}/api?genre=${genre}-show`;
-
-        if(!password) return;
+        const genre = document.getElementById('genreSelect').value;
+        const pass = document.getElementById('adminPass').value;
+        if(!genre || !pass) return;
 
         try {
-            const res = await fetch(`${base}/api?genre=${genre}&pass=${password}`);
+            const res = await fetch(`${window.location.origin}/api?genre=${genre}&pass=${pass}`);
             if(res.ok) {
                 const data = await res.json();
                 document.getElementById('jsonData').value = JSON.stringify(data, null, 2);
                 showStatus("Data Loaded", "lime");
-            }
-        } catch (e) { showStatus("Error loading data", "red"); }
+            } else { showStatus("Wrong Password", "red"); }
+        } catch (e) { showStatus("Error Loading", "red"); }
     }
 
     function addToJson() {
+        // အကွက်တွေထဲမှာ ဘာမှမဖြည့်ရင် ( "" ) စာသားအလွတ်အဖြစ် Auto ထည့်ပေးမယ့် Logic
         const movie = {
-            title: document.getElementById('mTitle').value,
-            photo1: document.getElementById('mPhoto1').value,
-            photo2: document.getElementById('mPhoto2').value,
-            description: document.getElementById('mDesc').value,
-            rate: document.getElementById('mRate').value || undefined,
-            HD: document.getElementById('mHD').value,
-            year: document.getElementById('mYear').value || undefined,
-            time: document.getElementById('mTime').value || undefined
+            title: document.getElementById('mTitle').value || "",
+            photo1: document.getElementById('mPhoto1').value || "",
+            photo2: document.getElementById('mPhoto2').value || "",
+            description: document.getElementById('mDesc').value || "",
+            rate: document.getElementById('mRate').value || "",
+            HD: document.getElementById('mHD').value || "",
+            year: document.getElementById('mYear').value || "",
+            time: document.getElementById('mTime').value || "",
+            // genre ကို အလွတ်ဆိုရင် array အလွတ်ပေးမယ်
+            genre: document.getElementById('mTags').value ? document.getElementById('mTags').value.split(',').map(s => s.trim()) : [],
+            File_Size: document.getElementById('mSize').value || "",
+            quality: document.getElementById('mQuality').value || ""
         };
-        
-        let currentData = JSON.parse(document.getElementById('jsonData').value || "[]");
-        
-        // unshift သုံးပြီး ရှေ့ဆုံးကနေ ထည့်မယ်
-        currentData.unshift(movie); 
-        
-        document.getElementById('jsonData').value = JSON.stringify(currentData, null, 2);
-        showStatus("Added to top! Click SAVE to confirm.", "yellow");
+
+        let data = JSON.parse(document.getElementById('jsonData').value || "[]");
+        data.unshift(movie);
+        document.getElementById('jsonData').value = JSON.stringify(data, null, 2);
+        showStatus("Added! Please Save.", "yellow");
         
         // Form ရှင်းမယ်
-        ['mTitle', 'mPhoto1', 'mPhoto2', 'mHD', 'mDesc', 'mRate', 'mYear', 'mTime'].forEach(id => document.getElementById(id).value = "");
+        ['mTitle','mPhoto1','mPhoto2','mDesc','mRate','mHD','mYear','mTime','mTags','mSize','mQuality'].forEach(id => document.getElementById(id).value = "");
     }
 
     async function saveAll() {
-        const genre = document.getElementById('genre').value;
+        const genre = document.getElementById('genreSelect').value;
         const data = document.getElementById('jsonData').value;
         const password = document.getElementById('adminPass').value;
-
-        if(!genre || !password) { alert("Need Genre and Pass!"); return; }
 
         showStatus("Saving...", "orange");
         const res = await fetch('/update', {
@@ -129,8 +123,8 @@
             body: JSON.stringify({ genre, data, password })
         });
 
-        if(res.ok) showStatus("Successfully Updated! ✅", "lime");
-        else showStatus("Update Failed! ❌", "red");
+        if(res.ok) showStatus("Update Success! ✅", "lime");
+        else showStatus("Failed! ❌", "red");
     }
 
     function showStatus(t, c) {
