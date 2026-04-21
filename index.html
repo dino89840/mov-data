@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Movie Admin Pro</title>
+    <title>Movie Admin Pro - Fixed</title>
     <style>
         body { font-family: 'Segoe UI', sans-serif; background: #1a202c; color: #e2e8f0; padding: 15px; }
         .container { max-width: 800px; margin: auto; background: #2d3748; padding: 25px; border-radius: 12px; box-shadow: 0 10px 20px rgba(0,0,0,0.2); }
@@ -11,16 +11,12 @@
         .section { background: #3c4858; padding: 20px; border-radius: 8px; margin-bottom: 20px; border-left: 5px solid #63b3ed; }
         label { display: block; margin: 10px 0 5px; font-weight: bold; font-size: 14px; }
         input, textarea, select { width: 100%; padding: 12px; border-radius: 6px; border: 1px solid #4a5568; background: #1a202c; color: white; box-sizing: border-box; margin-bottom: 10px; font-size: 14px; }
-        .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
         .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; }
         button { width: 100%; padding: 15px; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; margin-top: 10px; }
         .btn-add { background: #38a169; color: white; }
         .btn-save { background: #3182ce; color: white; }
-        
-        /* Link Copy Section */
-        .link-card { background: #2c5282; padding: 15px; border-radius: 8px; margin-bottom: 20px; font-size: 13px; border: 1px solid #4299e1; }
-        .link-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
-        .copy-btn { width: auto; padding: 6px 12px; background: #4a5568; font-size: 11px; margin: 0; color: white; }
+        .link-card { background: #2c5282; padding: 15px; border-radius: 8px; margin-bottom: 20px; font-size: 12px; border: 1px solid #4299e1; }
+        .copy-btn { padding: 4px 8px; background: #4a5568; font-size: 10px; color: white; border-radius: 4px; margin-left: 10px; }
         .status { text-align: center; margin-top: 10px; font-weight: bold; }
     </style>
 </head>
@@ -30,9 +26,9 @@
     <h2>🎬 Movie Data Center</h2>
     
     <label>Admin Password:</label>
-    <input type="password" id="adminPass" placeholder="Password ရိုက်ပါ" oninput="loadData()">
+    <input type="password" id="adminPass" placeholder="Enter Password" oninput="loadData()">
 
-    <label>Category (Genre) ရွေးပါ:</label>
+    <label>Category ရွေးပါ:</label>
     <select id="genreSelect" onchange="loadData()">
         <option value="">-- ရွေးချယ်ပါ --</option>
         <option value="jav-mmsub">Jav Mmsub</option>
@@ -46,35 +42,29 @@
     </select>
 
     <div class="link-card" id="linkCard" style="display:none;">
-        <div class="link-row">
-            <span><strong>Main Link (All):</strong> <span id="urlMain" style="color:#90cdf4;"></span></span>
-            <button class="copy-btn" onclick="copyLink('urlMain')">Copy</button>
-        </div>
-        <div class="link-row">
-            <span><strong>Home Link (Latest 8):</strong> <span id="urlShow" style="color:#90cdf4;"></span></span>
-            <button class="copy-btn" onclick="copyLink('urlShow')">Copy</button>
-        </div>
+        <p>Main: <span id="urlMain"></span> <button class="copy-btn" onclick="copyText('urlMain')">Copy</button></p>
+        <p>Home: <span id="urlShow"></span> <button class="copy-btn" onclick="copyText('urlShow')">Copy</button></p>
     </div>
 
     <div class="section">
-        <h4>+ ဇာတ်ကားအသစ်ထည့်ရန်</h4>
-        <input type="text" id="mTitle" placeholder="Title (Required)">
-        <div class="grid">
+        <h4>+ Add New Movie (ထိပ်ဆုံးရောက်မည်)</h4>
+        <input type="text" id="mTitle" placeholder="Title">
+        <div class="grid-3">
             <input type="text" id="mPhoto1" placeholder="Photo 1 (Poster)">
             <input type="text" id="mPhoto2" placeholder="Photo 2 (Landscape)">
+            <input type="text" id="mHD" placeholder="Video Link (HD)">
         </div>
         <textarea id="mDesc" rows="4" placeholder="Description"></textarea>
         <div class="grid-3">
-            <input type="text" id="mRate" placeholder="Rate (e.g. 8.1)">
-            <input type="text" id="mYear" placeholder="Year (e.g. 2024)">
-            <input type="text" id="mTime" placeholder="Time (min)">
+            <input type="text" id="mRate" placeholder="Rate">
+            <input type="text" id="mYear" placeholder="Year">
+            <input type="text" id="mTime" placeholder="Time">
         </div>
         <div class="grid-3">
-            <input type="text" id="mHD" placeholder="Video Link (HD)">
-            <input type="text" id="mQuality" placeholder="720p / 1080p">
-            <input type="text" id="mSize" placeholder="File Size (1.2 GB)">
+            <input type="text" id="mQuality" placeholder="Quality">
+            <input type="text" id="mSize" placeholder="File Size">
+            <input type="text" id="mTags" placeholder="Tags (Action, Sci-fi)">
         </div>
-        <input type="text" id="mTags" placeholder="Genre Tags (Action, Sci-fi)">
         <button class="btn-add" onclick="addToJson()">Add to Top</button>
     </div>
 
@@ -87,79 +77,72 @@
 </div>
 
 <script>
-    function getBaseUrl() { return window.location.origin; }
-
     async function loadData() {
         const genre = document.getElementById('genreSelect').value;
         const pass = document.getElementById('adminPass').value;
-        
-        if(!genre) {
-            document.getElementById('linkCard').style.display = "none";
-            return;
-        }
+        if(!genre) { document.getElementById('linkCard').style.display = "none"; return; }
 
-        // Link ပြသခြင်း
         document.getElementById('linkCard').style.display = "block";
-        document.getElementById('urlMain').innerText = `${getBaseUrl()}/api?genre=${genre}`;
-        document.getElementById('urlShow').innerText = `${getBaseUrl()}/api?genre=${genre}-show`;
+        document.getElementById('urlMain').innerText = `${window.location.origin}/api?genre=${genre}`;
+        document.getElementById('urlShow').innerText = `${window.location.origin}/api?genre=${genre}-show`;
 
         if(!pass) return;
-
         try {
-            const res = await fetch(`${getBaseUrl()}/api?genre=${genre}&pass=${pass}`);
+            const res = await fetch(`${window.location.origin}/api?genre=${genre}&pass=${pass}`);
             if(res.ok) {
                 const data = await res.json();
                 document.getElementById('jsonData').value = JSON.stringify(data, null, 2);
-                showStatus("Data Loaded Successfully!", "lime");
+                showStatus("Data Loaded", "lime");
             }
-        } catch (e) { showStatus("Error loading data", "red"); }
-    }
-
-    function copyLink(id) {
-        const text = document.getElementById(id).innerText;
-        navigator.clipboard.writeText(text);
-        alert("Copied: " + text);
+        } catch (e) { showStatus("Error", "red"); }
     }
 
     function addToJson() {
-        const movie = {
-            title: document.getElementById('mTitle').value || "",
-            photo1: document.getElementById('mPhoto1').value || "",
-            photo2: document.getElementById('mPhoto2').value || "",
-            description: document.getElementById('mDesc').value || "",
-            rate: document.getElementById('mRate').value || "",
-            HD: document.getElementById('mHD').value || "",
-            year: document.getElementById('mYear').value || "",
-            time: document.getElementById('mTime').value || "",
-            genre: document.getElementById('mTags').value ? document.getElementById('mTags').value.split(',').map(s => s.trim()) : [],
-            File_Size: document.getElementById('mSize').value || "",
-            quality: document.getElementById('mQuality').value || ""
-        };
+        // ဒီအပိုင်းမှာ Key တွေကို အသေ သတ်မှတ်လိုက်တာမို့ ဘာမှမဖြည့်လည်း JSON ထဲမှာ ပါသွားပါလိမ့်မယ်
+        const movie = {};
+        movie["title"] = document.getElementById('mTitle').value || "";
+        movie["photo1"] = document.getElementById('mPhoto1').value || "";
+        movie["photo2"] = document.getElementById('mPhoto2').value || "";
+        movie["description"] = document.getElementById('mDesc').value || "";
+        movie["rate"] = document.getElementById('mRate').value || "";
+        movie["HD"] = document.getElementById('mHD').value || "";
+        movie["year"] = document.getElementById('mYear').value || "";
+        movie["time"] = document.getElementById('mTime').value || "";
+        movie["genre"] = document.getElementById('mTags').value ? document.getElementById('mTags').value.split(',').map(s => s.trim()) : [];
+        movie["File_Size"] = document.getElementById('mSize').value || "";
+        movie["quality"] = document.getElementById('mQuality').value || "";
 
-        let data = JSON.parse(document.getElementById('jsonData').value || "[]");
-        data.unshift(movie);
-        document.getElementById('jsonData').value = JSON.stringify(data, null, 2);
-        showStatus("Added to top! Click SAVE to confirm.", "yellow");
+        let currentData = [];
+        try {
+            currentData = JSON.parse(document.getElementById('jsonData').value || "[]");
+        } catch(e) { currentData = []; }
+
+        currentData.unshift(movie);
+        document.getElementById('jsonData').value = JSON.stringify(currentData, null, 2);
+        showStatus("Added! Don't forget to SAVE.", "yellow");
         
-        // Reset inputs
-        ['mTitle','mPhoto1','mPhoto2','mDesc','mRate','mHD','mYear','mTime','mTags','mSize','mQuality'].forEach(id => document.getElementById(id).value = "");
+        // Reset Inputs
+        ['mTitle','mPhoto1','mPhoto2','mHD','mDesc','mRate','mYear','mTime','mQuality','mSize','mTags'].forEach(id => document.getElementById(id).value = "");
     }
 
     async function saveAll() {
         const genre = document.getElementById('genreSelect').value;
         const data = document.getElementById('jsonData').value;
         const password = document.getElementById('adminPass').value;
-
-        if(!genre || !password) { alert("Category and Password are required!"); return; }
+        if(!genre || !password) { alert("Need Category and Password"); return; }
 
         showStatus("Saving...", "orange");
         const res = await fetch('/update', {
             method: 'POST',
             body: JSON.stringify({ genre, data, password })
         });
+        if(res.ok) showStatus("Successfully Updated! ✅", "lime");
+        else showStatus("Failed! ❌", "red");
+    }
 
-        if(res.ok) showStatus("Update Success! ✅", "lime");
-        else showStatus("Update Failed! Check Password.", "red");
+    function copyText(id) {
+        navigator.clipboard.writeText(document.getElementById(id).innerText);
+        alert("Copied!");
     }
 
     function showStatus(t, c) {
