@@ -5,65 +5,81 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Movie Admin Pro</title>
     <style>
-        body { font-family: sans-serif; background: #1a202c; color: #e2e8f0; padding: 15px; }
-        .container { max-width: 800px; margin: auto; background: #2d3748; padding: 20px; border-radius: 12px; }
+        body { font-family: 'Segoe UI', sans-serif; background: #1a202c; color: #e2e8f0; padding: 15px; }
+        .container { max-width: 800px; margin: auto; background: #2d3748; padding: 25px; border-radius: 12px; box-shadow: 0 10px 20px rgba(0,0,0,0.2); }
+        h2 { text-align: center; color: #63b3ed; }
+        .section { background: #3c4858; padding: 20px; border-radius: 8px; margin-bottom: 20px; border-left: 5px solid #63b3ed; }
+        label { display: block; margin: 10px 0 5px; font-weight: bold; font-size: 14px; }
         input, textarea, select { width: 100%; padding: 12px; border-radius: 6px; border: 1px solid #4a5568; background: #1a202c; color: white; box-sizing: border-box; margin-bottom: 10px; font-size: 14px; }
         .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
         .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; }
         button { width: 100%; padding: 15px; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; margin-top: 10px; }
         .btn-add { background: #38a169; color: white; }
         .btn-save { background: #3182ce; color: white; }
-        .section { background: #3c4858; padding: 15px; border-radius: 8px; margin-bottom: 20px; border-left: 5px solid #63b3ed; }
+        
+        /* Link Copy Section */
+        .link-card { background: #2c5282; padding: 15px; border-radius: 8px; margin-bottom: 20px; font-size: 13px; border: 1px solid #4299e1; }
+        .link-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+        .copy-btn { width: auto; padding: 6px 12px; background: #4a5568; font-size: 11px; margin: 0; color: white; }
         .status { text-align: center; margin-top: 10px; font-weight: bold; }
     </style>
 </head>
 <body>
 
 <div class="container">
-    <h2 style="text-align:center;color:#63b3ed;">🎬 Movie Admin Panel</h2>
+    <h2>🎬 Movie Data Center</h2>
     
     <label>Admin Password:</label>
     <input type="password" id="adminPass" placeholder="Password ရိုက်ပါ" oninput="loadData()">
 
-    <label>Category:</label>
+    <label>Category (Genre) ရွေးပါ:</label>
     <select id="genreSelect" onchange="loadData()">
-        <option value="">-- ရွေးပါ --</option>
+        <option value="">-- ရွေးချယ်ပါ --</option>
         <option value="jav-mmsub">Jav Mmsub</option>
+        <option value="jav-nosub">Jav Nosub</option>
         <option value="usa-mmsub">USA Mmsub</option>
+        <option value="usa-nosub">USA Nosub</option>
         <option value="chinese-mmsub">Chinese Mmsub</option>
+        <option value="chinese-nosub">Chinese Nosub</option>
         <option value="yoteshin">Yoteshin</option>
+        <option value="ads-notice">Ads & Notice</option>
     </select>
+
+    <div class="link-card" id="linkCard" style="display:none;">
+        <div class="link-row">
+            <span><strong>Main Link (All):</strong> <span id="urlMain" style="color:#90cdf4;"></span></span>
+            <button class="copy-btn" onclick="copyLink('urlMain')">Copy</button>
+        </div>
+        <div class="link-row">
+            <span><strong>Home Link (Latest 8):</strong> <span id="urlShow" style="color:#90cdf4;"></span></span>
+            <button class="copy-btn" onclick="copyLink('urlShow')">Copy</button>
+        </div>
+    </div>
 
     <div class="section">
         <h4>+ ဇာတ်ကားအသစ်ထည့်ရန်</h4>
         <input type="text" id="mTitle" placeholder="Title (Required)">
-        
         <div class="grid">
             <input type="text" id="mPhoto1" placeholder="Photo 1 (Poster)">
             <input type="text" id="mPhoto2" placeholder="Photo 2 (Landscape)">
         </div>
-
-        <textarea id="mDesc" rows="5" placeholder="Description"></textarea>
-
+        <textarea id="mDesc" rows="4" placeholder="Description"></textarea>
         <div class="grid-3">
-            <input type="text" id="mRate" placeholder="Rating (Optional)">
-            <input type="text" id="mYear" placeholder="Year (Optional)">
-            <input type="text" id="mTime" placeholder="Time (Optional)">
+            <input type="text" id="mRate" placeholder="Rate (e.g. 8.1)">
+            <input type="text" id="mYear" placeholder="Year (e.g. 2024)">
+            <input type="text" id="mTime" placeholder="Time (min)">
         </div>
-
         <div class="grid-3">
-            <input type="text" id="mHD" placeholder="Video URL (HD)">
-            <input type="text" id="mQuality" placeholder="Quality (Optional)">
-            <input type="text" id="mSize" placeholder="Size (Optional)">
+            <input type="text" id="mHD" placeholder="Video Link (HD)">
+            <input type="text" id="mQuality" placeholder="720p / 1080p">
+            <input type="text" id="mSize" placeholder="File Size (1.2 GB)">
         </div>
-
-        <input type="text" id="mTags" placeholder="Genre Tags (ဥပမာ- Action, Sci-fi)">
-
+        <input type="text" id="mTags" placeholder="Genre Tags (Action, Sci-fi)">
         <button class="btn-add" onclick="addToJson()">Add to Top</button>
     </div>
 
     <div class="section">
-        <h4>Manual Editor (JSON Data)</h4>
+        <h4>Manual Editor</h4>
         <textarea id="jsonData" rows="10"></textarea>
         <button class="btn-save" onclick="saveAll()">Save All Changes</button>
     </div>
@@ -71,23 +87,41 @@
 </div>
 
 <script>
+    function getBaseUrl() { return window.location.origin; }
+
     async function loadData() {
         const genre = document.getElementById('genreSelect').value;
         const pass = document.getElementById('adminPass').value;
-        if(!genre || !pass) return;
+        
+        if(!genre) {
+            document.getElementById('linkCard').style.display = "none";
+            return;
+        }
+
+        // Link ပြသခြင်း
+        document.getElementById('linkCard').style.display = "block";
+        document.getElementById('urlMain').innerText = `${getBaseUrl()}/api?genre=${genre}`;
+        document.getElementById('urlShow').innerText = `${getBaseUrl()}/api?genre=${genre}-show`;
+
+        if(!pass) return;
 
         try {
-            const res = await fetch(`${window.location.origin}/api?genre=${genre}&pass=${pass}`);
+            const res = await fetch(`${getBaseUrl()}/api?genre=${genre}&pass=${pass}`);
             if(res.ok) {
                 const data = await res.json();
                 document.getElementById('jsonData').value = JSON.stringify(data, null, 2);
-                showStatus("Data Loaded", "lime");
-            } else { showStatus("Wrong Password", "red"); }
-        } catch (e) { showStatus("Error Loading", "red"); }
+                showStatus("Data Loaded Successfully!", "lime");
+            }
+        } catch (e) { showStatus("Error loading data", "red"); }
+    }
+
+    function copyLink(id) {
+        const text = document.getElementById(id).innerText;
+        navigator.clipboard.writeText(text);
+        alert("Copied: " + text);
     }
 
     function addToJson() {
-        // အကွက်တွေထဲမှာ ဘာမှမဖြည့်ရင် ( "" ) စာသားအလွတ်အဖြစ် Auto ထည့်ပေးမယ့် Logic
         const movie = {
             title: document.getElementById('mTitle').value || "",
             photo1: document.getElementById('mPhoto1').value || "",
@@ -97,7 +131,6 @@
             HD: document.getElementById('mHD').value || "",
             year: document.getElementById('mYear').value || "",
             time: document.getElementById('mTime').value || "",
-            // genre ကို အလွတ်ဆိုရင် array အလွတ်ပေးမယ်
             genre: document.getElementById('mTags').value ? document.getElementById('mTags').value.split(',').map(s => s.trim()) : [],
             File_Size: document.getElementById('mSize').value || "",
             quality: document.getElementById('mQuality').value || ""
@@ -106,9 +139,9 @@
         let data = JSON.parse(document.getElementById('jsonData').value || "[]");
         data.unshift(movie);
         document.getElementById('jsonData').value = JSON.stringify(data, null, 2);
-        showStatus("Added! Please Save.", "yellow");
+        showStatus("Added to top! Click SAVE to confirm.", "yellow");
         
-        // Form ရှင်းမယ်
+        // Reset inputs
         ['mTitle','mPhoto1','mPhoto2','mDesc','mRate','mHD','mYear','mTime','mTags','mSize','mQuality'].forEach(id => document.getElementById(id).value = "");
     }
 
@@ -117,6 +150,8 @@
         const data = document.getElementById('jsonData').value;
         const password = document.getElementById('adminPass').value;
 
+        if(!genre || !password) { alert("Category and Password are required!"); return; }
+
         showStatus("Saving...", "orange");
         const res = await fetch('/update', {
             method: 'POST',
@@ -124,7 +159,7 @@
         });
 
         if(res.ok) showStatus("Update Success! ✅", "lime");
-        else showStatus("Failed! ❌", "red");
+        else showStatus("Update Failed! Check Password.", "red");
     }
 
     function showStatus(t, c) {
