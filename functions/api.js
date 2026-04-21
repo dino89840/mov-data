@@ -4,35 +4,31 @@ export async function onRequestGet(context) {
     const genre = searchParams.get('genre') || 'all';
     const pass = searchParams.get('pass');
 
-    const userAgent = request.headers.get("user-agent") || "";
     const SECURE_PASSWORD = env.ADMIN_PASSWORD;
+    const data = await env.MOVIE_DB.get(genre);
 
-    // Admin Pass စစ်ဆေးခြင်း
-    const isAdmin = (pass && pass === SECURE_PASSWORD);
-
-    if (!isAdmin) {
-        const isBrowser = userAgent.includes("Mozilla") || userAgent.includes("Chrome") || userAgent.includes("Safari");
-        if (isBrowser) {
-            return new Response("Access Denied", { status: 403 });
-        }
-    }
-
-    // တကယ်လို့ genre က '-show' နဲ့ ဆုံးနေရင် (ဥပမာ jav-mmsub-show)
-    if (genre.endsWith("-show")) {
-        const mainGenre = genre.replace("-show", ""); // မူရင်း genre ကို ရှာတယ်
-        const rawData = await env.MOVIE_DB.get(mainGenre);
-        let list = JSON.parse(rawData || "[]");
-        
-        // နောက်ဆုံးတင်တဲ့ ၈ ကားပဲ ဖြတ်ယူမယ်
-        const showList = list.slice(0, 8); 
-        return new Response(JSON.stringify(showList), {
+    // ၁။ Admin Password မှန်ရင် (Owner ကြည့်တာဆိုရင်)
+    if (pass === SECURE_PASSWORD) {
+        return new Response(data || "[]", {
             headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" }
         });
     }
 
-    // ပုံမှန် Genre ဆိုရင် အကုန်ပြမယ်
-    const data = await env.MOVIE_DB.get(genre);
+    // ၂။ genre က '-show' နဲ့ ဆုံးရင် နောက်ဆုံး ၈ ကားပဲ ပြမယ်
+    if (genre.endsWith("-show")) {
+        const mainGenre = genre.replace("-show", "");
+        const rawData = await env.MOVIE_DB.get(mainGenre);
+        let list = JSON.parse(rawData || "[]");
+        return new Response(JSON.stringify(list.slice(0, 8)), {
+            headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" }
+        });
+    }
+
+    // ၃။ ပုံမှန် APK ကနေ ခေါ်ယူမှုအတွက်
     return new Response(data || "[]", {
-        headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" }
+        headers: { 
+            "Content-Type": "application/json",
+            "Access-Control-Allow-Origin": "*" // တစ်ခြား website တွေက ခိုးသုံးလို့မရအောင် ဒါကို နောက်ပိုင်းမှာ အစ်ကို့ domain နဲ့ ကန့်သတ်လို့ရပါတယ်
+        }
     });
 }
