@@ -8,27 +8,16 @@
         body { font-family: 'Segoe UI', sans-serif; background: #f0f2f5; padding: 20px; color: #333; }
         .container { max-width: 800px; margin: auto; background: white; padding: 30px; border-radius: 15px; box-shadow: 0 5px 25px rgba(0,0,0,0.1); }
         h2 { text-align: center; color: #1a73e8; margin-bottom: 20px; }
-        
         .section { background: #f8f9fa; padding: 20px; border-radius: 10px; border-left: 5px solid #1a73e8; margin-bottom: 25px; }
-        h4 { margin-top: 0; color: #1a73e8; }
-        
         label { font-weight: bold; display: block; margin: 10px 0 5px; font-size: 14px; }
-        input, textarea, select { width: 100%; padding: 12px; border: 1px solid #ddd; border-radius: 8px; box-sizing: border-box; font-size: 14px; }
-        
+        input, textarea, select { width: 100%; padding: 12px; border: 1px solid #ddd; border-radius: 8px; box-sizing: border-box; font-size: 14px; margin-bottom: 10px; }
         .grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; }
-        
         button { width: 100%; padding: 15px; border: none; border-radius: 8px; cursor: pointer; font-size: 16px; font-weight: bold; transition: 0.3s; margin-top: 10px; }
         .btn-add { background: #28a745; color: white; }
-        .btn-add:hover { background: #218838; }
         .btn-save { background: #1a73e8; color: white; }
-        
-        .status { text-align: center; margin-top: 15px; font-weight: bold; padding: 10px; border-radius: 8px; }
-        
-        /* Copy Section Style */
         .link-info { background: #e8f0fe; padding: 15px; border-radius: 8px; margin-bottom: 20px; display: flex; align-items: center; justify-content: space-between; border: 1px solid #c2d7ff; }
-        .url-text { font-size: 13px; color: #1a73e8; font-weight: bold; word-break: break-all; margin-right: 10px; }
-        .btn-copy { width: auto; padding: 8px 15px; background: #6c757d; font-size: 12px; margin-top: 0; }
-        .btn-copy:active { background: #1a73e8; }
+        .btn-copy { width: auto; padding: 8px 15px; background: #6c757d; font-size: 12px; margin-top: 0; color: white; }
+        .status { text-align: center; margin-top: 15px; font-weight: bold; }
     </style>
 </head>
 <body>
@@ -36,14 +25,21 @@
 <div class="container">
     <h2>🎬 Movie Data Center</h2>
     
-    <label>စီမံမည့် Category (ရွေးပါ သို့မဟုတ် အသစ်ရိုက်ထည့်ပါ):</label>
-    <input list="genre-list" id="genre" placeholder="ဥပမာ- jav-mmsub" onchange="loadData()">
-    <datalist id="genre-list">
-        <option value="jav-mmsub"><option value="jav-nosub">
-        <option value="usa-mmsub"><option value="usa-nosub">
-        <option value="chinese-mmsub"><option value="chinese-nosub">
-        <option value="yoteshin"><option value="ads-notice">
-    </datalist>
+    <label>စီမံမည့် Category ကိုရွေးပါ:</label>
+    <select id="genre" onchange="loadData()">
+        <option value="">-- ရွေးချယ်ပါ --</option>
+        <option value="jav-mmsub">Jav Mmsub</option>
+        <option value="jav-nosub">Jav Nosub</option>
+        <option value="usa-mmsub">USA Mmsub</option>
+        <option value="usa-nosub">USA Nosub</option>
+        <option value="chinese-mmsub">Chinese Mmsub</option>
+        <option value="chinese-nosub">Chinese Nosub</option>
+        <option value="yoteshin">Yoteshin</option>
+        <option value="ads-notice">Ads & Notice</option>
+    </select>
+
+    <label>Category အသစ်တိုးလိုပါက ရိုက်ထည့်ပါ:</label>
+    <input type="text" id="custom-genre" placeholder="ဥပမာ- action-2026" oninput="loadData()">
 
     <div class="link-info">
         <div>
@@ -55,32 +51,26 @@
 
     <div class="section">
         <h4>+ ဇာတ်ကားအသစ်ထည့်ရန်</h4>
-        <label>Title (ဇာတ်ကားအမည်):</label>
-        <input type="text" id="title" placeholder="Past Lives">
-
+        <input type="text" id="title" placeholder="Title">
         <div class="grid">
-            <div><label>Photo 1 (Poster):</label><input type="text" id="photo1" placeholder="URL"></div>
-            <div><label>Photo 2 (Landscape):</label><input type="text" id="photo2" placeholder="URL"></div>
-            <div><label>Video Link (HD):</label><input type="text" id="HD" placeholder="URL"></div>
+            <input type="text" id="photo1" placeholder="Photo 1 (URL)">
+            <input type="text" id="photo2" placeholder="Photo 2 (URL)">
+            <input type="text" id="HD" placeholder="Video Link (URL)">
         </div>
-
-        <label>Description (ဇာတ်လမ်းအညွှန်း):</label>
-        <textarea id="description" rows="5"></textarea>
-
+        <textarea id="description" rows="5" placeholder="Description"></textarea>
         <div class="grid">
-            <div><label>Rating:</label><input type="text" id="rate" placeholder="7.8"></div>
-            <div><label>Year:</label><input type="text" id="year" placeholder="2023"></div>
-            <div><label>Time (Min):</label><input type="text" id="time" placeholder="106"></div>
+            <input type="text" id="rate" placeholder="Rating (e.g. 7.8)">
+            <input type="text" id="year" placeholder="Year (e.g. 2023)">
+            <input type="text" id="time" placeholder="Time (e.g. 106)">
         </div>
         <button class="btn-add" onclick="addNewMovie()">Add To List</button>
     </div>
 
     <div class="section">
-        <h4>Manual JSON Edit / Ads</h4>
-        <textarea id="jsonData" rows="12"></textarea>
+        <h4>Manual JSON Edit</h4>
+        <textarea id="jsonData" rows="10"></textarea>
         <button class="btn-save" onclick="saveFullData()">Save All Changes</button>
     </div>
-
     <div id="status" class="status"></div>
 </div>
 
@@ -88,27 +78,26 @@
     let fullUrl = "";
 
     async function loadData() {
-        const genre = document.getElementById('genre').value.trim();
+        const selectGenre = document.getElementById('genre').value;
+        const customGenre = document.getElementById('custom-genre').value.trim();
+        const genre = customGenre || selectGenre;
+
         if(!genre) return;
 
         fullUrl = `${window.location.origin}/api?genre=${genre}`;
         document.getElementById('currentUrl').innerText = fullUrl;
         document.getElementById('copyBtn').style.display = "block";
-        document.getElementById('copyBtn').innerText = "Copy Link";
 
         try {
             const res = await fetch(`/api?genre=${genre}`);
             const data = await res.json();
             document.getElementById('jsonData').value = JSON.stringify(data, null, 2);
-            showStatus("Data loaded!", "green");
         } catch (e) {
             document.getElementById('jsonData').value = "[]";
-            showStatus("New Category detected.", "blue");
         }
     }
 
     function copyLink() {
-        if(!fullUrl) return;
         navigator.clipboard.writeText(fullUrl);
         const btn = document.getElementById('copyBtn');
         btn.innerText = "Copied! ✅";
@@ -116,8 +105,11 @@
     }
 
     async function addNewMovie() {
-        const genre = document.getElementById('genre').value.trim();
-        if(!genre) { alert("Category အရင်ရွေးပါ"); return; }
+        const selectGenre = document.getElementById('genre').value;
+        const customGenre = document.getElementById('custom-genre').value.trim();
+        const genre = customGenre || selectGenre;
+
+        if(!genre) { alert("Category ရွေးပါ"); return; }
 
         const movie = {
             title: document.getElementById('title').value,
@@ -138,17 +130,16 @@
     }
 
     async function saveFullData() {
-        const genre = document.getElementById('genre').value.trim();
-        const data = document.getElementById('jsonData').value;
-        if(!genre) { alert("Category ရွေးပါ"); return; }
+        const selectGenre = document.getElementById('genre').value;
+        const customGenre = document.getElementById('custom-genre').value.trim();
+        const genre = customGenre || selectGenre;
 
-        showStatus("Saving...", "orange");
+        const data = document.getElementById('jsonData').value;
         const res = await fetch('/update', {
             method: 'POST',
             body: JSON.stringify({ genre, data })
         });
-        if(res.ok) showStatus("Successfully Saved! ✅", "green");
-        else showStatus("Error Saving!", "red");
+        if(res.ok) showStatus("Saved! ✅", "green");
     }
 
     function clearForm() {
@@ -160,6 +151,5 @@
         s.innerText = text; s.style.color = color;
     }
 </script>
-
 </body>
 </html>
