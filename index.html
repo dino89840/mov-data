@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="my">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Movie Data Manager</title>
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f0f2f5; padding: 20px; }
+        .container { max-width: 700px; margin: auto; background: white; padding: 30px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); }
+        h2 { color: #1a73e8; text-align: center; }
+        .form-group { margin-bottom: 15px; }
+        label { font-weight: bold; display: block; margin-bottom: 5px; }
+        select, textarea { width: 100%; padding: 12px; border: 1px solid #ddd; border-radius: 6px; box-sizing: border-box; font-family: monospace; }
+        button { width: 100%; padding: 12px; background-color: #1a73e8; color: white; border: none; border-radius: 6px; font-size: 16px; cursor: pointer; transition: 0.3s; }
+        button:hover { background-color: #1557b0; }
+        #msg { text-align: center; margin-top: 15px; font-weight: bold; }
+        .links { background: #e8f0fe; padding: 15px; border-radius: 6px; margin-top: 20px; font-size: 14px; }
+        .links a { color: #1a73e8; text-decoration: none; word-break: break-all; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h2>🎬 Movie Data Manager</h2>
+    
+    <div class="form-group">
+        <label>Genre (အမျိုးအစား):</label>
+        <select id="genre" onchange="fetchData()">
+            <option value="action">Action</option>
+            <option value="drama">Drama</option>
+            <option value="horror">Horror</option>
+            <option value="all">All Movies</option>
+        </select>
+    </div>
+
+    <div class="form-group">
+        <label>JSON Data (Edit လုပ်ရန်):</label>
+        <textarea id="jsonData" rows="12" placeholder='[{"title": "Movie Name", "url": "Link"}]'></textarea>
+    </div>
+
+    <button onclick="saveData()">Update Data</button>
+    <div id="msg"></div>
+
+    <div class="links">
+        <strong>သင့်ရဲ့ Raw Link များ:</strong><br>
+        Action: <a id="actionLink" href="#" target="_blank">Loading...</a><br>
+        Drama: <a id="dramaLink" href="#" target="_blank">Loading...</a>
+    </div>
+</div>
+
+<script>
+    const baseUrl = window.location.origin;
+    document.getElementById('actionLink').innerText = baseUrl + '/api?genre=action';
+    document.getElementById('actionLink').href = '/api?genre=action';
+    document.getElementById('dramaLink').innerText = baseUrl + '/api?genre=drama';
+    document.getElementById('dramaLink').href = '/api?genre=drama';
+
+    // Data ဆွဲထုတ်ရန်
+    async function fetchData() {
+        const genre = document.getElementById('genre').value;
+        const res = await fetch(`/api?genre=${genre}`);
+        const data = await res.json();
+        document.getElementById('jsonData').value = JSON.stringify(data, null, 2);
+    }
+
+    // Data သိမ်းရန်
+    async function saveData() {
+        const genre = document.getElementById('genre').value;
+        const data = document.getElementById('jsonData').value;
+        const msg = document.getElementById('msg');
+        
+        msg.innerText = "Saving...";
+        msg.style.color = "orange";
+
+        try {
+            const res = await fetch('/update', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ genre, data })
+            });
+            if(res.ok) {
+                msg.innerText = "Successfully Updated!";
+                msg.style.color = "green";
+            } else {
+                msg.innerText = "Update Failed!";
+                msg.style.color = "red";
+            }
+        } catch (e) {
+            msg.innerText = "Error: " + e;
+        }
+    }
+
+    // အစဦးဆုံး data တစ်ခါဆွဲပြရန်
+    fetchData();
+</script>
+
+</body>
+</html>
