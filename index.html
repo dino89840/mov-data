@@ -3,20 +3,19 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Movie Admin Pro - Fixed</title>
+    <title>Movie Admin Pro - Dynamic</title>
     <style>
-        body { font-family: 'Segoe UI', sans-serif; background: #1a202c; color: #e2e8f0; padding: 15px; }
-        .container { max-width: 800px; margin: auto; background: #2d3748; padding: 25px; border-radius: 12px; box-shadow: 0 10px 20px rgba(0,0,0,0.2); }
+        body { font-family: sans-serif; background: #1a202c; color: #e2e8f0; padding: 15px; }
+        .container { max-width: 800px; margin: auto; background: #2d3748; padding: 25px; border-radius: 12px; }
         h2 { text-align: center; color: #63b3ed; }
         .section { background: #3c4858; padding: 20px; border-radius: 8px; margin-bottom: 20px; border-left: 5px solid #63b3ed; }
-        label { display: block; margin: 10px 0 5px; font-weight: bold; font-size: 14px; }
-        input, textarea, select { width: 100%; padding: 12px; border-radius: 6px; border: 1px solid #4a5568; background: #1a202c; color: white; box-sizing: border-box; margin-bottom: 10px; font-size: 14px; }
+        label { display: block; margin: 10px 0 5px; font-weight: bold; }
+        input, textarea, select { width: 100%; padding: 12px; border-radius: 6px; border: 1px solid #4a5568; background: #1a202c; color: white; box-sizing: border-box; margin-bottom: 10px; }
         .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; }
-        button { width: 100%; padding: 15px; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; margin-top: 10px; }
-        .btn-add { background: #38a169; color: white; }
+        button { width: 100%; padding: 15px; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; }
+        .btn-add { background: #38a169; color: white; margin-bottom: 10px; }
         .btn-save { background: #3182ce; color: white; }
-        .link-card { background: #2c5282; padding: 15px; border-radius: 8px; margin-bottom: 20px; font-size: 12px; border: 1px solid #4299e1; }
-        .copy-btn { padding: 4px 8px; background: #4a5568; font-size: 10px; color: white; border-radius: 4px; margin-left: 10px; }
+        .link-card { background: #2c5282; padding: 15px; border-radius: 8px; margin-bottom: 20px; font-size: 12px; }
         .status { text-align: center; margin-top: 10px; font-weight: bold; }
     </style>
 </head>
@@ -31,28 +30,20 @@
     <label>Category ရွေးပါ:</label>
     <select id="genreSelect" onchange="loadData()">
         <option value="">-- ရွေးချယ်ပါ --</option>
-        <option value="jav-mmsub">Jav Mmsub</option>
-        <option value="jav-nosub">Jav Nosub</option>
-        <option value="usa-mmsub">USA Mmsub</option>
-        <option value="usa-nosub">USA Nosub</option>
-        <option value="chinese-mmsub">Chinese Mmsub</option>
-        <option value="chinese-nosub">Chinese Nosub</option>
-        <option value="yoteshin">Yoteshin</option>
-        <option value="ads-notice">Ads & Notice</option>
-    </select>
+        </select>
 
     <div class="link-card" id="linkCard" style="display:none;">
-        <p>Main: <span id="urlMain"></span> <button class="copy-btn" onclick="copyText('urlMain')">Copy</button></p>
-        <p>Home: <span id="urlShow"></span> <button class="copy-btn" onclick="copyText('urlShow')">Copy</button></p>
+        <p>Main Raw: <span id="urlMain" style="color:#90cdf4;"></span></p>
+        <p>Home Show: <span id="urlShow" style="color:#90cdf4;"></span></p>
     </div>
 
     <div class="section">
-        <h4>+ Add New Movie (ထိပ်ဆုံးရောက်မည်)</h4>
+        <h4>+ Add New Movie</h4>
         <input type="text" id="mTitle" placeholder="Title">
         <div class="grid-3">
-            <input type="text" id="mPhoto1" placeholder="Photo 1 (Poster)">
-            <input type="text" id="mPhoto2" placeholder="Photo 2 (Landscape)">
-            <input type="text" id="mHD" placeholder="Video Link (HD)">
+            <input type="text" id="mPhoto1" placeholder="Photo 1">
+            <input type="text" id="mPhoto2" placeholder="Photo 2">
+            <input type="text" id="mHD" placeholder="Video Link">
         </div>
         <textarea id="mDesc" rows="4" placeholder="Description"></textarea>
         <div class="grid-3">
@@ -77,6 +68,28 @@
 </div>
 
 <script>
+    // --- ဒီနေရာမှာ Category အသစ်တွေကို စိတ်ကြိုက် တိုးနိုင်ပါတယ် ---
+    const categories = [
+        { id: "jav-mmsub", name: "Jav Mmsub" },
+        { id: "jav-nosub", name: "Jav Nosub" },
+        { id: "usa-mmsub", name: "USA Mmsub" },
+        { id: "usa-nosub", name: "USA Nosub" },
+        { id: "chinese-mmsub", name: "Chinese Mmsub" },
+        { id: "chinese-nosub", name: "Chinese Nosub" },
+        { id: "yoteshin", name: "Yoteshin" },
+        { id: "ads-notice", name: "Ads & Notice" }
+        // { id: "new-cat", name: "New Category" } <-- ဒီလိုမျိုး ထပ်တိုးရုံပါပဲ
+    ];
+
+    // Dropdown ထဲကို categories တွေ ထည့်မယ်
+    const select = document.getElementById('genreSelect');
+    categories.forEach(cat => {
+        let opt = document.createElement('option');
+        opt.value = cat.id;
+        opt.innerHTML = cat.name;
+        select.appendChild(opt);
+    });
+
     async function loadData() {
         const genre = document.getElementById('genreSelect').value;
         const pass = document.getElementById('adminPass').value;
@@ -98,30 +111,24 @@
     }
 
     function addToJson() {
-        // ဒီအပိုင်းမှာ Key တွေကို အသေ သတ်မှတ်လိုက်တာမို့ ဘာမှမဖြည့်လည်း JSON ထဲမှာ ပါသွားပါလိမ့်မယ်
-        const movie = {};
-        movie["title"] = document.getElementById('mTitle').value || "";
-        movie["photo1"] = document.getElementById('mPhoto1').value || "";
-        movie["photo2"] = document.getElementById('mPhoto2').value || "";
-        movie["description"] = document.getElementById('mDesc').value || "";
-        movie["rate"] = document.getElementById('mRate').value || "";
-        movie["HD"] = document.getElementById('mHD').value || "";
-        movie["year"] = document.getElementById('mYear').value || "";
-        movie["time"] = document.getElementById('mTime').value || "";
-        movie["genre"] = document.getElementById('mTags').value ? document.getElementById('mTags').value.split(',').map(s => s.trim()) : [];
-        movie["File_Size"] = document.getElementById('mSize').value || "";
-        movie["quality"] = document.getElementById('mQuality').value || "";
+        const movie = {
+            title: document.getElementById('mTitle').value || "",
+            photo1: document.getElementById('mPhoto1').value || "",
+            photo2: document.getElementById('mPhoto2').value || "",
+            description: document.getElementById('mDesc').value || "",
+            rate: document.getElementById('mRate').value || "",
+            HD: document.getElementById('mHD').value || "",
+            year: document.getElementById('mYear').value || "",
+            time: document.getElementById('mTime').value || "",
+            genre: document.getElementById('mTags').value ? document.getElementById('mTags').value.split(',').map(s => s.trim()) : [],
+            File_Size: document.getElementById('mSize').value || "",
+            quality: document.getElementById('mQuality').value || ""
+        };
 
-        let currentData = [];
-        try {
-            currentData = JSON.parse(document.getElementById('jsonData').value || "[]");
-        } catch(e) { currentData = []; }
-
-        currentData.unshift(movie);
-        document.getElementById('jsonData').value = JSON.stringify(currentData, null, 2);
+        let data = JSON.parse(document.getElementById('jsonData').value || "[]");
+        data.unshift(movie);
+        document.getElementById('jsonData').value = JSON.stringify(data, null, 2);
         showStatus("Added! Don't forget to SAVE.", "yellow");
-        
-        // Reset Inputs
         ['mTitle','mPhoto1','mPhoto2','mHD','mDesc','mRate','mYear','mTime','mQuality','mSize','mTags'].forEach(id => document.getElementById(id).value = "");
     }
 
@@ -137,12 +144,7 @@
             body: JSON.stringify({ genre, data, password })
         });
         if(res.ok) showStatus("Successfully Updated! ✅", "lime");
-        else showStatus("Failed! ❌", "red");
-    }
-
-    function copyText(id) {
-        navigator.clipboard.writeText(document.getElementById(id).innerText);
-        alert("Copied!");
+        else showStatus("Failed!", "red");
     }
 
     function showStatus(t, c) {
