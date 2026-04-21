@@ -7,45 +7,35 @@ export async function onRequestGet(context) {
     const userAgent = request.headers.get("user-agent") || "";
     const SECURE_PASSWORD = env.ADMIN_PASSWORD;
 
-    // ၁။ Admin Password ပါရင် (Owner) Cache ကို ကျော်ပြီး KV ကနေ အစစ်ယူပြမယ်
+    // ၁။ Admin Password ပါရင် Owner ဖြစ်လို့ အကုန်ပေးမယ်
     if (pass && pass === SECURE_PASSWORD) {
-        const kvData = await env.MOVIE_DB.get(genre);
-        return new Response(kvData || "[]", {
+        const data = await env.MOVIE_DB.get(genre);
+        return new Response(data || "[]", {
             headers: { "Content-Type": "application/json;charset=UTF-8", "Access-Control-Allow-Origin": "*" }
         });
     }
 
-    // ၂။ Browser Block
+    // ၂။ Browser Block (Password မပါဘဲ Browser ကလာရင် ပိတ်မယ်)
     const isBrowser = userAgent.includes("Mozilla") || userAgent.includes("Chrome") || userAgent.includes("Safari");
     if (isBrowser && !pass) {
-        return new Response(JSON.stringify({ error: "Access Denied" }), { status: 403 });
-    }
-
-    // ၃။ APK အတွက် Cache စနစ်
-    const cache = caches.default;
-    const cacheKey = new Request(request.url, request);
-    let response = await cache.match(cacheKey);
-
-    if (!response) {
-        let rawData;
-        if (genre.endsWith("-show")) {
-            const mainGenre = genre.replace("-show", "");
-            const kvData = await env.MOVIE_DB.get(mainGenre);
-            let list = JSON.parse(kvData || "[]");
-            rawData = JSON.stringify(list.slice(0, 8));
-        } else {
-            rawData = await env.MOVIE_DB.get(genre);
-        }
-
-        response = new Response(rawData || "[]", {
-            headers: { 
-                "Content-Type": "application/json;charset=UTF-8",
-                "Access-Control-Allow-Origin": "*",
-                "Cache-Control": "public, max-age=3600" // ၁ နာရီ Cache သိမ်းမယ်
-            }
+        return new Response(JSON.stringify({ error: "Access Denied" }), { 
+            status: 403,
+            headers: { "Content-Type": "application/json;charset=UTF-8" }
         });
-        context.waitUntil(cache.put(cacheKey, response.clone()));
     }
 
-    return response;
+    // ၃။ APK အတွက် Data ထုတ်ပေးခြင်း (Cache မပါဘဲ KV ကနေ တိုက်ရိုက်ယူမယ်)
+    if (genre.endsWith("-show")) {
+        const mainGenre = genre.replace("-show", "");
+        const rawData = await env.MOVIE_DB.get(mainGenre);
+        let list = JSON.parse(rawData || "[]");
+        return new Response(JSON.stringify(list.slice(0, 8)), {
+            headers: { "Content-Type": "application/json;charset=UTF-8", "Access-Control-Allow-Origin": "*" }
+        });
+    }
+
+    const data = await env.MOVIE_DB.get(genre);
+    return new Response(data || "[]", {
+        headers: { "Content-Type": "application/json;charset=UTF-8", "Access-Control-Allow-Origin": "*" }
+    });
 }
