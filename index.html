@@ -30,7 +30,7 @@
     <label>Category ရွေးပါ:</label>
     <select id="genreSelect" onchange="loadData()">
         <option value="">-- ရွေးချယ်ပါ --</option>
-        </select>
+    </select>
 
     <div class="link-card" id="linkCard" style="display:none;">
         <p>Main Raw: <span id="urlMain" style="color:#90cdf4;"></span></p>
@@ -68,7 +68,6 @@
 </div>
 
 <script>
-    // --- ဒီနေရာမှာ Category အသစ်တွေကို စိတ်ကြိုက် တိုးနိုင်ပါတယ် ---
     const categories = [
         { id: "jav-mmsub", name: "Jav Mmsub" },
         { id: "jav-nosub", name: "Jav Nosub" },
@@ -77,6 +76,7 @@
         { id: "chinese-mmsub", name: "Chinese Mmsub" },
         { id: "chinese-nosub", name: "Chinese Nosub" },
         { id: "yoteshin", name: "Yoteshin" },
+        { id: "slider-movie", name: "🎞️ Slider Movie (Auto)" },
         { id: "jvmmsub-ads", name: "Jvmmsub Ads" },
         { id: "jvnosub-ads", name: "jvnosub Ads" },
         { id: "usammsub-ads", name: "Usammsub Ads" },
@@ -96,10 +96,8 @@
         { id: "Moviedetail-firsttopads", name: " Normalmovie First Top Ads" },
         { id: "Yoteshin-allads", name: " Yoteshin All Detail Ads" },
         { id: "ads-notice", name: "Ads & Notice" }
-        // { id: "new-cat", name: "New Category" } <-- ဒီလိုမျိုး ထပ်တိုးရုံပါပဲ
     ];
 
-    // Dropdown ထဲကို categories တွေ ထည့်မယ်
     const select = document.getElementById('genreSelect');
     categories.forEach(cat => {
         let opt = document.createElement('option');
