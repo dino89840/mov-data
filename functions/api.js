@@ -24,7 +24,7 @@ export async function onRequestGet(context) {
         });
     }
 
-    // ၃။ APK အတွက် Data ထုတ်ပေးခြင်း (Cache မပါဘဲ KV ကနေ တိုက်ရိုက်ယူမယ်)
+    // ၃။ APK အတွက် Data ထုတ်ပေးခြင်း
     if (genre.endsWith("-show")) {
         const mainGenre = genre.replace("-show", "");
         const rawData = await env.MOVIE_DB.get(mainGenre);
