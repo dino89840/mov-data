@@ -61,7 +61,7 @@ export async function onRequestPost(context) {
             allMovies.sort((a, b) => a._order_index - b._order_index);
 
             // နောက်ဆုံးတင်ထားတဲ့ ၅ကားယူမယ်
-            const sliderMovies = allMovies.slice(0, 5).map(movie => {
+            const sliderMovies = allMovies.slice(0, 6).map(movie => {
                 // _source_category နဲ့ _order_index ကို ဖယ်ထုတ်မယ် (clean data)
                 const { _source_category, _order_index, ...cleanMovie } = movie;
                 return cleanMovie;
