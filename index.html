@@ -17,6 +17,61 @@
         .btn-save { background: #3182ce; color: white; }
         .link-card { background: #2c5282; padding: 15px; border-radius: 8px; margin-bottom: 20px; font-size: 12px; }
         .status { text-align: center; margin-top: 10px; font-weight: bold; }
+
+        /* Video Link + Check Button Layout */
+        .video-link-wrapper {
+            display: flex;
+            gap: 8px;
+            align-items: flex-start;
+            margin-bottom: 10px;
+        }
+        .video-link-wrapper input {
+            margin-bottom: 0;
+            flex: 1;
+        }
+        .btn-check {
+            padding: 12px 16px;
+            background: #d69e2e;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: bold;
+            font-size: 13px;
+            white-space: nowrap;
+            width: auto;
+            min-width: 80px;
+        }
+        .btn-check:hover { background: #b7791f; }
+        .btn-check:disabled { background: #4a5568; cursor: not-allowed; }
+
+        /* File Size Check Status */
+        .size-check-status {
+            font-size: 12px;
+            padding: 6px 10px;
+            border-radius: 4px;
+            margin-top: -5px;
+            margin-bottom: 8px;
+            display: none;
+        }
+        .size-check-status.checking { 
+            display: block; 
+            background: #2d3748; 
+            color: #f6ad55; 
+            border: 1px solid #d69e2e;
+        }
+        .size-check-status.success { 
+            display: block; 
+            background: #1c4532; 
+            color: #9ae6b4; 
+            border: 1px solid #38a169;
+        }
+        .size-check-status.error { 
+            display: block; 
+            background: #3b1f1f; 
+            color: #fc8181; 
+            border: 1px solid #e53e3e;
+        }
     </style>
 </head>
 <body>
@@ -43,8 +98,17 @@
         <div class="grid-3">
             <input type="text" id="mPhoto1" placeholder="Photo 1">
             <input type="text" id="mPhoto2" placeholder="Photo 2">
-            <input type="text" id="mHD" placeholder="Video Link">
+            <!-- Video Link + Check Button -->
+            <div class="video-link-wrapper">
+                <input type="text" id="mHD" placeholder="Video Link (Download URL)">
+                <button class="btn-check" id="checkBtn" onclick="checkFileSize()" title="Download Link ရဲ့ File Size စစ်ဆေးမည်">
+                    🔍 Check
+                </button>
+            </div>
         </div>
+        <!-- File Size Check Status Message -->
+        <div class="size-check-status" id="sizeCheckStatus"></div>
+
         <textarea id="mDesc" rows="4" placeholder="Description"></textarea>
         <div class="grid-3">
             <input type="text" id="mRate" placeholder="Rate">
@@ -53,7 +117,7 @@
         </div>
         <div class="grid-3">
             <input type="text" id="mQuality" placeholder="Quality">
-            <input type="text" id="mSize" placeholder="File Size">
+            <input type="text" id="mSize" placeholder="File Size (Auto ထည့်ပေးမည်)">
             <input type="text" id="mTags" placeholder="Tags (Action, Sci-fi)">
         </div>
         <button class="btn-add" onclick="addToJson()">Add to Top</button>
@@ -80,21 +144,21 @@
         { id: "jvmmsub-ads", name: "Jvmmsub Ads" },
         { id: "jvnosub-ads", name: "jvnosub Ads" },
         { id: "usammsub-ads", name: "Usammsub Ads" },
-        { id: "usanosub-ads", name: " Usanosub Ads" },
+        { id: "usanosub-ads", name: "Usanosub Ads" },
         { id: "chinesemmsub-ads", name: "Chinesemmsub Ads" },
-        { id: "chinesenosub-ads", name: " Chinesenosub Ads" },
-        { id: "request-movie", name: " Request Movie" },
-        { id: "telegram-channel", name: " Telegram Channel" },
+        { id: "chinesenosub-ads", name: "Chinesenosub Ads" },
+        { id: "request-movie", name: "Request Movie" },
+        { id: "telegram-channel", name: "Telegram Channel" },
         { id: "top-ads", name: "Top Ads" },
-        { id: "middle-ads", name: " Middle Ads" },
-        { id: "Button-ads", name: " Button Ads" },
-        { id: "download-ads", name: " Download Ads" },
-        { id: "Noti-ads", name: " Noti Ads" },
-        { id: "Moviedetail-ads", name: " Movie Detail Ads" },
-        { id: "Moviedetail-topads", name: " Movie Detail Top Ads" },
-        { id: "Moviedetail-buttonads", name: " Movie Detail Button Ads" },
-        { id: "Moviedetail-firsttopads", name: " Normalmovie First Top Ads" },
-        { id: "Yoteshin-allads", name: " Yoteshin All Detail Ads" },
+        { id: "middle-ads", name: "Middle Ads" },
+        { id: "Button-ads", name: "Button Ads" },
+        { id: "download-ads", name: "Download Ads" },
+        { id: "Noti-ads", name: "Noti Ads" },
+        { id: "Moviedetail-ads", name: "Movie Detail Ads" },
+        { id: "Moviedetail-topads", name: "Movie Detail Top Ads" },
+        { id: "Moviedetail-buttonads", name: "Movie Detail Button Ads" },
+        { id: "Moviedetail-firsttopads", name: "Normalmovie First Top Ads" },
+        { id: "Yoteshin-allads", name: "Yoteshin All Detail Ads" },
         { id: "ads-notice", name: "Ads & Notice" }
     ];
 
@@ -109,22 +173,82 @@
     async function loadData() {
         const genre = document.getElementById('genreSelect').value;
         const pass = document.getElementById('adminPass').value;
-        if(!genre) { document.getElementById('linkCard').style.display = "none"; return; }
+        if (!genre) { document.getElementById('linkCard').style.display = "none"; return; }
 
         document.getElementById('linkCard').style.display = "block";
         document.getElementById('urlMain').innerText = `${window.location.origin}/api?genre=${genre}`;
         document.getElementById('urlShow').innerText = `${window.location.origin}/api?genre=${genre}-show`;
 
-        if(!pass) return;
+        if (!pass) return;
         try {
             const res = await fetch(`${window.location.origin}/api?genre=${genre}&pass=${pass}`);
-            if(res.ok) {
+            if (res.ok) {
                 const data = await res.json();
                 document.getElementById('jsonData').value = JSON.stringify(data, null, 2);
                 showStatus("Data Loaded", "lime");
             }
         } catch (e) { showStatus("Error", "red"); }
     }
+
+    // ===================================================
+    // FILE SIZE CHECK FUNCTION
+    // ===================================================
+    async function checkFileSize() {
+        const hdLink = document.getElementById('mHD').value.trim();
+        const statusEl = document.getElementById('sizeCheckStatus');
+        const checkBtn = document.getElementById('checkBtn');
+
+        if (!hdLink) {
+            statusEl.className = 'size-check-status error';
+            statusEl.textContent = '⚠️ Video Link (Download URL) ကို အရင်ထည့်ပါ။';
+            return;
+        }
+
+        // URL format basic validation
+        if (!hdLink.startsWith('http://') && !hdLink.startsWith('https://')) {
+            statusEl.className = 'size-check-status error';
+            statusEl.textContent = '⚠️ Valid URL မဟုတ်ပါ။ http:// သို့ https:// ဖြင့်စတင်သောURL ထည့်ပါ။';
+            return;
+        }
+
+        // Loading state
+        checkBtn.disabled = true;
+        checkBtn.textContent = '⏳ ...';
+        statusEl.className = 'size-check-status checking';
+        statusEl.textContent = '🔍 File size စစ်ဆေးနေသည်... ခဏစောင့်ပါ။';
+
+        try {
+            // Cloudflare Worker proxy ကနေ HEAD request လုပ်မယ်
+            const proxyUrl = `${window.location.origin}/check-size?url=${encodeURIComponent(hdLink)}`;
+            const res = await fetch(proxyUrl, { method: 'GET' });
+            const result = await res.json();
+
+            if (result.success) {
+                // File Size field ထဲ auto ထည့်မယ်
+                document.getElementById('mSize').value = result.size;
+                statusEl.className = 'size-check-status success';
+                statusEl.textContent = `✅ File Size: ${result.size} — File Size field ထဲ auto ထည့်ပြီးပါပြီ။`;
+            } else {
+                statusEl.className = 'size-check-status error';
+                statusEl.textContent = `❌ ${result.error || 'File size ရယူ၍မရပါ။ Link ကို စစ်ဆေးပါ။'}`;
+            }
+        } catch (e) {
+            statusEl.className = 'size-check-status error';
+            statusEl.textContent = `❌ Error: ${e.message}`;
+        } finally {
+            checkBtn.disabled = false;
+            checkBtn.textContent = '🔍 Check';
+        }
+    }
+
+    // Enter key နှိပ်ရင်လည်း check လုပ်နိုင်အောင်
+    document.getElementById('mHD').addEventListener('keydown', function(e) {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            checkFileSize();
+        }
+    });
+    // ===================================================
 
     function addToJson() {
         const movie = {
@@ -136,7 +260,9 @@
             HD: document.getElementById('mHD').value || "",
             year: document.getElementById('mYear').value || "",
             time: document.getElementById('mTime').value || "",
-            genre: document.getElementById('mTags').value ? document.getElementById('mTags').value.split(',').map(s => s.trim()) : [],
+            genre: document.getElementById('mTags').value 
+                ? document.getElementById('mTags').value.split(',').map(s => s.trim()) 
+                : [],
             File_Size: document.getElementById('mSize').value || "",
             quality: document.getElementById('mQuality').value || ""
         };
@@ -145,21 +271,28 @@
         data.unshift(movie);
         document.getElementById('jsonData').value = JSON.stringify(data, null, 2);
         showStatus("Added! Don't forget to SAVE.", "yellow");
-        ['mTitle','mPhoto1','mPhoto2','mHD','mDesc','mRate','mYear','mTime','mQuality','mSize','mTags'].forEach(id => document.getElementById(id).value = "");
+
+        // Clear all fields + status
+        ['mTitle','mPhoto1','mPhoto2','mHD','mDesc','mRate','mYear','mTime','mQuality','mSize','mTags'].forEach(id => {
+            document.getElementById(id).value = "";
+        });
+        const statusEl = document.getElementById('sizeCheckStatus');
+        statusEl.className = 'size-check-status';
+        statusEl.textContent = '';
     }
 
     async function saveAll() {
         const genre = document.getElementById('genreSelect').value;
         const data = document.getElementById('jsonData').value;
         const password = document.getElementById('adminPass').value;
-        if(!genre || !password) { alert("Need Category and Password"); return; }
+        if (!genre || !password) { alert("Need Category and Password"); return; }
 
         showStatus("Saving...", "orange");
         const res = await fetch('/update', {
             method: 'POST',
             body: JSON.stringify({ genre, data, password })
         });
-        if(res.ok) showStatus("Successfully Updated! ✅", "lime");
+        if (res.ok) showStatus("Successfully Updated! ✅", "lime");
         else showStatus("Failed!", "red");
     }
 
