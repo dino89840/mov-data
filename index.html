@@ -18,19 +18,18 @@
         .link-card { background: #2c5282; padding: 15px; border-radius: 8px; margin-bottom: 20px; font-size: 12px; }
         .status { text-align: center; margin-top: 10px; font-weight: bold; }
 
-        /* Video Link + Check Button Layout */
-        .video-link-wrapper {
-            display: flex;
+        /* Video Link Row */
+        .video-link-row {
+            display: grid;
+            grid-template-columns: 1fr auto;
             gap: 8px;
-            align-items: flex-start;
+            align-items: center;
             margin-bottom: 10px;
         }
-        .video-link-wrapper input {
-            margin-bottom: 0;
-            flex: 1;
-        }
+        .video-link-row input { margin-bottom: 0; }
+
         .btn-check {
-            padding: 12px 16px;
+            padding: 12px 18px;
             background: #d69e2e;
             color: white;
             border: none;
@@ -40,45 +39,40 @@
             font-size: 13px;
             white-space: nowrap;
             width: auto;
-            min-width: 80px;
         }
         .btn-check:hover { background: #b7791f; }
         .btn-check:disabled { background: #4a5568; cursor: not-allowed; }
 
-        /* File Size Check Status */
-        .size-check-status {
-            font-size: 12px;
-            padding: 6px 10px;
-            border-radius: 4px;
-            margin-top: -5px;
-            margin-bottom: 8px;
+        /* Check Result Card */
+        .check-result {
             display: none;
+            background: #1a202c;
+            border-radius: 8px;
+            padding: 12px 16px;
+            margin-bottom: 10px;
+            border: 1px solid #4a5568;
+            font-size: 13px;
         }
-        .size-check-status.checking { 
-            display: block; 
-            background: #2d3748; 
-            color: #f6ad55; 
-            border: 1px solid #d69e2e;
+        .check-result.show { display: block; }
+        .check-result .result-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 4px 0;
         }
-        .size-check-status.success { 
-            display: block; 
-            background: #1c4532; 
-            color: #9ae6b4; 
-            border: 1px solid #38a169;
-        }
-        .size-check-status.error { 
-            display: block; 
-            background: #3b1f1f; 
-            color: #fc8181; 
-            border: 1px solid #e53e3e;
-        }
+        .check-result .result-label { color: #a0aec0; }
+        .check-result .result-value { font-weight: bold; }
+        .result-value.ok { color: #68d391; }
+        .result-value.fail { color: #fc8181; }
+        .result-value.loading { color: #f6ad55; }
+        .check-divider { border: none; border-top: 1px solid #4a5568; margin: 6px 0; }
     </style>
 </head>
 <body>
 
 <div class="container">
     <h2>🎬 Movie Data Center</h2>
-    
+
     <label>Admin Password:</label>
     <input type="password" id="adminPass" placeholder="Enter Password" oninput="loadData()">
 
@@ -95,28 +89,40 @@
     <div class="section">
         <h4>+ Add New Movie</h4>
         <input type="text" id="mTitle" placeholder="Title">
+
         <div class="grid-3">
             <input type="text" id="mPhoto1" placeholder="Photo 1">
             <input type="text" id="mPhoto2" placeholder="Photo 2">
             <!-- Video Link + Check Button -->
-            <div class="video-link-wrapper">
-                <input type="text" id="mHD" placeholder="Video Link (Download URL)">
-                <button class="btn-check" id="checkBtn" onclick="checkFileSize()" title="Download Link ရဲ့ File Size စစ်ဆေးမည်">
-                    🔍 Check
-                </button>
+            <div class="video-link-row">
+                <input type="text" id="mHD" placeholder="Video / Download URL">
+                <button class="btn-check" id="checkBtn" onclick="checkAll()">🔍 Check</button>
             </div>
         </div>
-        <!-- File Size Check Status Message -->
-        <div class="size-check-status" id="sizeCheckStatus"></div>
+
+        <!-- Check Result Card -->
+        <div class="check-result" id="checkResult">
+            <div class="result-row">
+                <span class="result-label">📦 File Size</span>
+                <span class="result-value" id="rSize">—</span>
+            </div>
+            <hr class="check-divider">
+            <div class="result-row">
+                <span class="result-label">⏱️ Duration</span>
+                <span class="result-value" id="rDuration">—</span>
+            </div>
+        </div>
 
         <textarea id="mDesc" rows="4" placeholder="Description"></textarea>
         <div class="grid-3">
             <input type="text" id="mRate" placeholder="Rate">
             <input type="text" id="mYear" placeholder="Year">
-            <input type="text" id="mTime" placeholder="Time">
+            <!-- Time field — auto fill ဖြင့် -->
+            <input type="text" id="mTime" placeholder="Time (Auto ထည့်ပေးမည်)">
         </div>
         <div class="grid-3">
             <input type="text" id="mQuality" placeholder="Quality">
+            <!-- File Size field — auto fill ဖြင့် -->
             <input type="text" id="mSize" placeholder="File Size (Auto ထည့်ပေးမည်)">
             <input type="text" id="mTags" placeholder="Tags (Action, Sci-fi)">
         </div>
@@ -191,62 +197,75 @@
     }
 
     // ===================================================
-    // FILE SIZE CHECK FUNCTION
+    // MAIN CHECK FUNCTION — Size + Duration တစ်ပြိုင်နက်
     // ===================================================
-    async function checkFileSize() {
+    async function checkAll() {
         const hdLink = document.getElementById('mHD').value.trim();
-        const statusEl = document.getElementById('sizeCheckStatus');
         const checkBtn = document.getElementById('checkBtn');
+        const resultCard = document.getElementById('checkResult');
+        const rSize = document.getElementById('rSize');
+        const rDuration = document.getElementById('rDuration');
 
         if (!hdLink) {
-            statusEl.className = 'size-check-status error';
-            statusEl.textContent = '⚠️ Video Link (Download URL) ကို အရင်ထည့်ပါ။';
+            alert('Video / Download URL ကို အရင်ထည့်ပါ။');
             return;
         }
-
-        // URL format basic validation
         if (!hdLink.startsWith('http://') && !hdLink.startsWith('https://')) {
-            statusEl.className = 'size-check-status error';
-            statusEl.textContent = '⚠️ Valid URL မဟုတ်ပါ။ http:// သို့ https:// ဖြင့်စတင်သောURL ထည့်ပါ။';
+            alert('Valid URL မဟုတ်ပါ။ http:// သို့ https:// ဖြင့်စရပါမည်။');
             return;
         }
 
-        // Loading state
+        // Loading UI
         checkBtn.disabled = true;
         checkBtn.textContent = '⏳ ...';
-        statusEl.className = 'size-check-status checking';
-        statusEl.textContent = '🔍 File size စစ်ဆေးနေသည်... ခဏစောင့်ပါ။';
+        resultCard.classList.add('show');
+        rSize.className = 'result-value loading';
+        rSize.textContent = 'စစ်ဆေးနေသည်...';
+        rDuration.className = 'result-value loading';
+        rDuration.textContent = 'စစ်ဆေးနေသည်...';
 
         try {
-            // Cloudflare Worker proxy ကနေ HEAD request လုပ်မယ်
-            const proxyUrl = `${window.location.origin}/check-size?url=${encodeURIComponent(hdLink)}`;
-            const res = await fetch(proxyUrl, { method: 'GET' });
+            // Size + Duration တစ်ပြိုင်နက် စစ်မယ်
+            const proxyUrl = `${window.location.origin}/check-size?url=${encodeURIComponent(hdLink)}&type=all`;
+            const res = await fetch(proxyUrl);
             const result = await res.json();
 
-            if (result.success) {
-                // File Size field ထဲ auto ထည့်မယ်
-                document.getElementById('mSize').value = result.size;
-                statusEl.className = 'size-check-status success';
-                statusEl.textContent = `✅ File Size: ${result.size} — File Size field ထဲ auto ထည့်ပြီးပါပြီ။`;
+            // --- File Size ---
+            if (result.sizeSuccess && result.size) {
+                rSize.className = 'result-value ok';
+                rSize.textContent = result.size;
+                document.getElementById('mSize').value = result.size; // auto fill
             } else {
-                statusEl.className = 'size-check-status error';
-                statusEl.textContent = `❌ ${result.error || 'File size ရယူ၍မရပါ။ Link ကို စစ်ဆေးပါ။'}`;
+                rSize.className = 'result-value fail';
+                rSize.textContent = 'ရယူ၍မရပါ';
             }
+
+            // --- Duration ---
+            if (result.durationSuccess && result.durationFormatted) {
+                rDuration.className = 'result-value ok';
+                rDuration.textContent = result.durationFormatted;
+                document.getElementById('mTime').value = result.durationFormatted; // auto fill
+            } else {
+                rDuration.className = 'result-value fail';
+                rDuration.textContent = 'ရယူ၍မရပါ (MP4 moov atom မတွေ့)';
+            }
+
         } catch (e) {
-            statusEl.className = 'size-check-status error';
-            statusEl.textContent = `❌ Error: ${e.message}`;
+            rSize.className = 'result-value fail';
+            rSize.textContent = 'Error: ' + e.message;
+            rDuration.className = 'result-value fail';
+            rDuration.textContent = 'Error';
         } finally {
             checkBtn.disabled = false;
             checkBtn.textContent = '🔍 Check';
         }
     }
 
-    // Enter key နှိပ်ရင်လည်း check လုပ်နိုင်အောင်
-    document.getElementById('mHD').addEventListener('keydown', function(e) {
-        if (e.key === 'Enter') {
-            e.preventDefault();
-            checkFileSize();
-        }
+    // Enter key support
+    document.addEventListener('DOMContentLoaded', () => {
+        document.getElementById('mHD').addEventListener('keydown', function(e) {
+            if (e.key === 'Enter') { e.preventDefault(); checkAll(); }
+        });
     });
     // ===================================================
 
@@ -260,8 +279,8 @@
             HD: document.getElementById('mHD').value || "",
             year: document.getElementById('mYear').value || "",
             time: document.getElementById('mTime').value || "",
-            genre: document.getElementById('mTags').value 
-                ? document.getElementById('mTags').value.split(',').map(s => s.trim()) 
+            genre: document.getElementById('mTags').value
+                ? document.getElementById('mTags').value.split(',').map(s => s.trim())
                 : [],
             File_Size: document.getElementById('mSize').value || "",
             quality: document.getElementById('mQuality').value || ""
@@ -272,13 +291,12 @@
         document.getElementById('jsonData').value = JSON.stringify(data, null, 2);
         showStatus("Added! Don't forget to SAVE.", "yellow");
 
-        // Clear all fields + status
-        ['mTitle','mPhoto1','mPhoto2','mHD','mDesc','mRate','mYear','mTime','mQuality','mSize','mTags'].forEach(id => {
+        // Clear all + hide result card
+        ['mTitle','mPhoto1','mPhoto2','mHD','mDesc','mRate','mYear',
+         'mTime','mQuality','mSize','mTags'].forEach(id => {
             document.getElementById(id).value = "";
         });
-        const statusEl = document.getElementById('sizeCheckStatus');
-        statusEl.className = 'size-check-status';
-        statusEl.textContent = '';
+        document.getElementById('checkResult').classList.remove('show');
     }
 
     async function saveAll() {
