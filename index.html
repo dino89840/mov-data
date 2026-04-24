@@ -267,37 +267,58 @@
             if (e.key === 'Enter') { e.preventDefault(); checkAll(); }
         });
     });
-    // ===================================================
+   function addToJson() {
 
-    function addToJson() {
-        const movie = {
-            title: document.getElementById('mTitle').value || "",
-            photo1: document.getElementById('mPhoto1').value || "",
-            photo2: document.getElementById('mPhoto2').value || "",
-            description: document.getElementById('mDesc').value || "",
-            rate: document.getElementById('mRate').value || "",
-            HD: document.getElementById('mHD').value || "",
-            year: document.getElementById('mYear').value || "",
-            time: document.getElementById('mTime').value || "",
-            genre: document.getElementById('mTags').value
-                ? document.getElementById('mTags').value.split(',').map(s => s.trim())
-                : [],
-            File_Size: document.getElementById('mSize').value || "",
-            quality: document.getElementById('mQuality').value || ""
-        };
+    // --- Auto Default Values ---
 
-        let data = JSON.parse(document.getElementById('jsonData').value || "[]");
-        data.unshift(movie);
-        document.getElementById('jsonData').value = JSON.stringify(data, null, 2);
-        showStatus("Added! Don't forget to SAVE.", "yellow");
+    // Quality: မထည့်ရင် "HD" auto
+    const quality = document.getElementById('mQuality').value.trim() || "HD";
 
-        // Clear all + hide result card
-        ['mTitle','mPhoto1','mPhoto2','mHD','mDesc','mRate','mYear',
-         'mTime','mQuality','mSize','mTags'].forEach(id => {
-            document.getElementById(id).value = "";
-        });
-        document.getElementById('checkResult').classList.remove('show');
-    }
+    // Year: မထည့်ရင် "N/A" auto  
+    const year = document.getElementById('mYear').value.trim() || "N/A";
+
+    // Rating: မထည့်ရင် 6.5 ~ 9.5 ကြားက Random နံပတ်
+    const rawRate = document.getElementById('mRate').value.trim();
+    const rate = rawRate || generateRandomRating();
+
+    const movie = {
+        title: document.getElementById('mTitle').value || "",
+        photo1: document.getElementById('mPhoto1').value || "",
+        photo2: document.getElementById('mPhoto2').value || "",
+        description: document.getElementById('mDesc').value || "",
+        rate: rate,
+        HD: document.getElementById('mHD').value || "",
+        year: year,
+        time: document.getElementById('mTime').value || "",
+        genre: document.getElementById('mTags').value
+            ? document.getElementById('mTags').value.split(',').map(s => s.trim())
+            : [],
+        File_Size: document.getElementById('mSize').value || "",
+        quality: quality
+    };
+
+    let data = JSON.parse(document.getElementById('jsonData').value || "[]");
+    data.unshift(movie);
+    document.getElementById('jsonData').value = JSON.stringify(data, null, 2);
+    showStatus(`Added! Quality: ${quality} | Year: ${year} | Rate: ${rate} — SAVE နှိပ်ပါ`, "yellow");
+
+    // Clear all + hide result card
+    ['mTitle','mPhoto1','mPhoto2','mHD','mDesc','mRate','mYear',
+     'mTime','mQuality','mSize','mTags'].forEach(id => {
+        document.getElementById(id).value = "";
+    });
+    document.getElementById('checkResult').classList.remove('show');
+}
+
+// Random Rating Generator (6.5 ~ 9.5)
+function generateRandomRating() {
+    // 6.5, 6.6, 6.7 ... 9.4, 9.5 ထဲကမှ random ရွေးမယ်
+    const min = 65;
+    const max = 95;
+    const rand = Math.floor(Math.random() * (max - min + 1)) + min;
+    return (rand / 10).toFixed(1); // "7.3" ပုံစံ string ထွက်မယ်
+}
+
 
     async function saveAll() {
         const genre = document.getElementById('genreSelect').value;
