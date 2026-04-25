@@ -1,25 +1,60 @@
 export async function onRequestGet(context) {
-    const { request } = context;
+    const { request, env } = context;
     const { searchParams } = new URL(request.url);
     const url = searchParams.get('url');
-    const checkType = searchParams.get('type') || 'size'; // 'size' or 'duration' or 'all'
+    const checkType = searchParams.get('type') || 'size';
+    const pass = searchParams.get('pass');
 
-    if (!url) {
-        return new Response(JSON.stringify({ error: "No URL provided" }), {
-            status: 400,
-            headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" }
+    // ============================================
+    // ADMIN ONLY — check-size သည် admin သာ သုံးနိုင်
+    // ============================================
+    const SECURE_PASSWORD = env.ADMIN_PASSWORD;
+    if (!pass || pass !== SECURE_PASSWORD) {
+        return new Response(JSON.stringify({ error: "Unauthorized" }), {
+            status: 401,
+            headers: { "Content-Type": "application/json" }
         });
     }
 
+    if (!url) {
+        return jsonResponse({ error: "No URL provided" }, 400);
+    }
+
+    // URL validation
     try {
-        // ==========================================
+        const parsedUrl = new URL(url);
+        if (!['http:', 'https:'].includes(parsedUrl.protocol)) {
+            return jsonResponse({ error: "Invalid URL protocol" }, 400);
+        }
+    } catch (e) {
+        return jsonResponse({ error: "Invalid URL" }, 400);
+    }
+
+    // Internal/Private IP block (SSRF protection)
+    const hostname = new URL(url).hostname;
+    const privatePatterns = [
+        /^localhost$/i,
+        /^127\./,
+        /^10\./,
+        /^192\.168\./,
+        /^172\.(1[6-9]|2[0-9]|3[01])\./,
+        /^0\.0\.0\.0$/,
+        /^::1$/
+    ];
+    if (privatePatterns.some(p => p.test(hostname))) {
+        return jsonResponse({ error: "Private IP not allowed" }, 403);
+    }
+
+    try {
+        // ============================================
         // FILE SIZE CHECK (HEAD request)
-        // ==========================================
+        // ============================================
         let sizeResult = { success: false, size: null, bytes: null };
 
         const headRes = await fetch(url, {
             method: 'HEAD',
-            headers: { 'User-Agent': 'Mozilla/5.0' }
+            headers: { 'User-Agent': 'Mozilla/5.0 (compatible; MovieBot/1.0)' },
+            redirect: 'follow'
         });
 
         const contentLength = headRes.headers.get('content-length');
@@ -27,51 +62,44 @@ export async function onRequestGet(context) {
 
         if (contentLength) {
             const bytes = parseInt(contentLength);
-            sizeResult = {
-                success: true,
-                bytes: bytes,
-                size: formatSize(bytes),
-                contentType: contentType
-            };
+            if (!isNaN(bytes) && bytes > 0) {
+                sizeResult = {
+                    success: true,
+                    bytes,
+                    size: formatSize(bytes),
+                    contentType
+                };
+            }
         }
 
-        // Size သာ လိုအပ်ရင် ဒီမှာပဲ return
         if (checkType === 'size') {
             return jsonResponse(sizeResult.success
-                ? { success: true, size: sizeResult.size, bytes: sizeResult.bytes, contentType: contentType }
+                ? { success: true, size: sizeResult.size, bytes: sizeResult.bytes, contentType }
                 : { success: false, error: "Content-Length မရရှိပါ။" }
             );
         }
 
-        // ==========================================
-        // DURATION CHECK (Range request + MP4 parse)
-        // ==========================================
-        let durationResult = { success: false, duration: null };
+        // ============================================
+        // DURATION CHECK
+        // ============================================
+        let durationResult = { success: false };
 
-        // Video file မဟုတ်ရင် skip
         const isVideo = contentType.includes('video') ||
-            url.toLowerCase().includes('.mp4') ||
-            url.toLowerCase().includes('.mkv') ||
-            url.toLowerCase().includes('.mov') ||
-            url.toLowerCase().includes('.avi');
+            /\.(mp4|mkv|mov|avi|webm)(\?|$)/i.test(url);
 
         if (isVideo || checkType === 'duration' || checkType === 'all') {
             durationResult = await getDuration(url, sizeResult.bytes);
         }
 
-        // ==========================================
-        // RETURN ALL RESULTS
-        // ==========================================
         if (checkType === 'duration') {
             return jsonResponse(durationResult);
         }
 
-        // 'all' - size + duration အပြည့်
         return jsonResponse({
             success: sizeResult.success || durationResult.success,
             size: sizeResult.size || null,
             bytes: sizeResult.bytes || null,
-            contentType: contentType,
+            contentType,
             duration: durationResult.duration || null,
             durationFormatted: durationResult.durationFormatted || null,
             durationSuccess: durationResult.success,
@@ -83,20 +111,20 @@ export async function onRequestGet(context) {
     }
 }
 
-// ==========================================
+// ============================================
 // MP4 DURATION PARSER
-// ==========================================
+// ============================================
 async function getDuration(url, totalBytes) {
     try {
-        // နည်းလမ်း ၁: File အစကနေ 2MB ယူပြီး moov atom ရှာ
         const CHUNK_SIZE = 2 * 1024 * 1024; // 2MB
 
         const rangeRes = await fetch(url, {
             method: 'GET',
             headers: {
-                'User-Agent': 'Mozilla/5.0',
+                'User-Agent': 'Mozilla/5.0 (compatible; MovieBot/1.0)',
                 'Range': `bytes=0-${CHUNK_SIZE - 1}`
-            }
+            },
+            redirect: 'follow'
         });
 
         if (!rangeRes.ok && rangeRes.status !== 206) {
@@ -105,40 +133,29 @@ async function getDuration(url, totalBytes) {
 
         const buffer = await rangeRes.arrayBuffer();
         const bytes = new Uint8Array(buffer);
-
-        // MP4 moov atom ထဲက mvhd box ကို ရှာမယ်
         let duration = findMP4Duration(bytes);
 
         if (duration) {
-            return {
-                success: true,
-                duration: duration,
-                durationFormatted: formatDuration(duration)
-            };
+            return { success: true, duration, durationFormatted: formatDuration(duration) };
         }
 
-        // နည်းလမ်း ၂: moov atom က file အဆုံးမှာ ရှိရင် — နောက်ဆုံး 500KB ယူပြီးထပ်ကြည့်
+        // File အဆုံးမှာ moov atom ရှိနိုင်လို့ ၅၀၀KB နောက်ဆုံး စစ်ဆေး
         if (totalBytes && totalBytes > CHUNK_SIZE) {
             const endStart = Math.max(0, totalBytes - 512 * 1024);
             const endRes = await fetch(url, {
                 method: 'GET',
                 headers: {
-                    'User-Agent': 'Mozilla/5.0',
+                    'User-Agent': 'Mozilla/5.0 (compatible; MovieBot/1.0)',
                     'Range': `bytes=${endStart}-${totalBytes - 1}`
-                }
+                },
+                redirect: 'follow'
             });
 
             if (endRes.ok || endRes.status === 206) {
-                const endBuffer = await endRes.arrayBuffer();
-                const endBytes = new Uint8Array(endBuffer);
+                const endBytes = new Uint8Array(await endRes.arrayBuffer());
                 duration = findMP4Duration(endBytes);
-
                 if (duration) {
-                    return {
-                        success: true,
-                        duration: duration,
-                        durationFormatted: formatDuration(duration)
-                    };
+                    return { success: true, duration, durationFormatted: formatDuration(duration) };
                 }
             }
         }
@@ -150,75 +167,33 @@ async function getDuration(url, totalBytes) {
     }
 }
 
-// ==========================================
-// MP4 MVHD BOX PARSER
-// mvhd box ထဲမှာ duration & timescale ပါတယ်
-// ==========================================
 function findMP4Duration(bytes) {
-    // 'mvhd' signature ကို ရှာမယ် (6d766864)
     const mvhd = [0x6d, 0x76, 0x68, 0x64];
-
     for (let i = 0; i < bytes.length - 100; i++) {
-        if (bytes[i] === mvhd[0] &&
-            bytes[i+1] === mvhd[1] &&
-            bytes[i+2] === mvhd[2] &&
-            bytes[i+3] === mvhd[3]) {
-
-            // mvhd box တွေ့ပြီ
-            // mvhd structure:
-            // 4 bytes: box size
-            // 4 bytes: 'mvhd'  <-- ဒီနေရာကနေ ရှာနေတာ (i position)
-            // 1 byte:  version (0 or 1)
-            // 3 bytes: flags
-
+        if (bytes[i] === mvhd[0] && bytes[i+1] === mvhd[1] &&
+            bytes[i+2] === mvhd[2] && bytes[i+3] === mvhd[3]) {
             const version = bytes[i + 4];
-
             let timescale, durationVal;
-
             if (version === 0) {
-                // Version 0: 32-bit values
-                // i+4: version
-                // i+5..7: flags
-                // i+8..11: creation time
-                // i+12..15: modification time
-                // i+16..19: timescale
-                // i+20..23: duration
                 timescale = readUint32(bytes, i + 16);
                 durationVal = readUint32(bytes, i + 20);
             } else if (version === 1) {
-                // Version 1: 64-bit time values
-                // i+4: version
-                // i+5..7: flags
-                // i+8..15: creation time (64-bit)
-                // i+16..23: modification time (64-bit)
-                // i+24..27: timescale (32-bit)
-                // i+28..35: duration (64-bit)
                 timescale = readUint32(bytes, i + 24);
-                // 64-bit duration (high 32 bits ကို ignore — practical video lengths အတွက် ok)
                 durationVal = readUint32(bytes, i + 32);
-            } else {
-                continue;
-            }
+            } else { continue; }
 
             if (timescale > 0 && durationVal > 0) {
                 const seconds = Math.round(durationVal / timescale);
-                if (seconds > 0 && seconds < 86400) { // 0 - 24 hours
-                    return seconds;
-                }
+                if (seconds > 0 && seconds < 86400) return seconds;
             }
         }
     }
     return null;
 }
 
-// ==========================================
-// HELPER FUNCTIONS
-// ==========================================
 function readUint32(bytes, offset) {
-    return ((bytes[offset] << 24) |
-            (bytes[offset+1] << 16) |
-            (bytes[offset+2] << 8) |
-             bytes[offset+3]) >>> 0;
+    return ((bytes[offset] << 24) | (bytes[offset+1] << 16) |
+            (bytes[offset+2] << 8) | bytes[offset+3]) >>> 0;
 }
 
 function formatSize(bytes) {
@@ -232,18 +207,12 @@ function formatDuration(seconds) {
     const h = Math.floor(seconds / 3600);
     const m = Math.floor((seconds % 3600) / 60);
     const s = seconds % 60;
-    if (h > 0) {
-        return `${h}h ${m}m`; // "2h 15m"
-    }
-    return `${m}m ${s}s`;     // "45m 30s"
+    return h > 0 ? `${h}h ${m}m` : `${m}m ${s}s`;
 }
 
 function jsonResponse(data, status = 200) {
     return new Response(JSON.stringify(data), {
         status,
-        headers: {
-            "Content-Type": "application/json",
-            "Access-Control-Allow-Origin": "*"
-        }
+        headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" }
     });
 }
