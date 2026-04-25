@@ -3,54 +3,210 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Movie Admin Pro - Dynamic</title>
+    <title>Movie Admin Pro</title>
     <style>
-        body { font-family: sans-serif; background: #1a202c; color: #e2e8f0; padding: 15px; }
-        .container { max-width: 800px; margin: auto; background: #2d3748; padding: 25px; border-radius: 12px; }
-        h2 { text-align: center; color: #63b3ed; }
-        .section { background: #3c4858; padding: 20px; border-radius: 8px; margin-bottom: 20px; border-left: 5px solid #63b3ed; }
-        label { display: block; margin: 10px 0 5px; font-weight: bold; }
-        input, textarea, select { width: 100%; padding: 12px; border-radius: 6px; border: 1px solid #4a5568; background: #1a202c; color: white; box-sizing: border-box; margin-bottom: 10px; }
+        :root {
+            --bg-primary: #1a202c;
+            --bg-secondary: #2d3748;
+            --bg-tertiary: #3c4858;
+            --accent: #63b3ed;
+            --accent-dark: #3182ce;
+            --success: #38a169;
+            --warning: #d69e2e;
+            --danger: #e53e3e;
+            --text-primary: #e2e8f0;
+            --text-muted: #a0aec0;
+            --border: #4a5568;
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body {
+            font-family: 'Segoe UI', sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            padding: 15px;
+            min-height: 100vh;
+        }
+
+        .container {
+            max-width: 820px;
+            margin: auto;
+            background: var(--bg-secondary);
+            padding: 28px;
+            border-radius: 14px;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+        }
+
+        h2 {
+            text-align: center;
+            color: var(--accent);
+            font-size: 22px;
+            margin-bottom: 20px;
+            letter-spacing: 0.5px;
+        }
+
+        /* Login Gate */
+        #loginGate {
+            text-align: center;
+            padding: 40px 20px;
+        }
+        #loginGate h3 { color: var(--accent); margin-bottom: 20px; font-size: 18px; }
+        #loginGate input {
+            max-width: 300px;
+            margin: 0 auto 12px;
+            display: block;
+        }
+
+        /* Lock Overlay */
+        #mainContent { display: none; }
+
+        .section {
+            background: var(--bg-tertiary);
+            padding: 20px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            border-left: 4px solid var(--accent);
+        }
+
+        .section h4 {
+            color: var(--accent);
+            margin-bottom: 15px;
+            font-size: 15px;
+        }
+
+        label {
+            display: block;
+            margin: 10px 0 5px;
+            font-weight: 600;
+            font-size: 13px;
+            color: var(--text-muted);
+        }
+
+        input, textarea, select {
+            width: 100%;
+            padding: 11px 14px;
+            border-radius: 7px;
+            border: 1px solid var(--border);
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            font-size: 14px;
+            margin-bottom: 10px;
+            transition: border-color 0.2s;
+        }
+
+        input:focus, textarea:focus, select:focus {
+            outline: none;
+            border-color: var(--accent);
+        }
+
+        input::placeholder, textarea::placeholder {
+            color: #4a5568;
+        }
+
+        .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
         .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; }
-        button { width: 100%; padding: 15px; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; }
-        .btn-add { background: #38a169; color: white; margin-bottom: 10px; }
-        .btn-save { background: #3182ce; color: white; }
-        .link-card { background: #2c5282; padding: 15px; border-radius: 8px; margin-bottom: 20px; font-size: 12px; }
-        .status { text-align: center; margin-top: 10px; font-weight: bold; }
+
+        @media (max-width: 600px) {
+            .grid-3 { grid-template-columns: 1fr; }
+            .grid-2 { grid-template-columns: 1fr; }
+            .container { padding: 16px; }
+        }
+
+        button {
+            padding: 12px 20px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 700;
+            font-size: 14px;
+            transition: all 0.2s;
+        }
+
+        .btn-login {
+            background: var(--accent-dark);
+            color: white;
+            width: 100%;
+            padding: 13px;
+            margin-top: 5px;
+        }
+        .btn-login:hover { background: #2b6cb0; transform: translateY(-1px); }
+
+        .btn-add {
+            width: 100%;
+            background: var(--success);
+            color: white;
+            margin-bottom: 10px;
+            padding: 13px;
+        }
+        .btn-add:hover { background: #276749; }
+        .btn-add:disabled { background: var(--border); cursor: not-allowed; }
+
+        .btn-save {
+            width: 100%;
+            background: var(--accent-dark);
+            color: white;
+            padding: 13px;
+        }
+        .btn-save:hover { background: #2b6cb0; }
+        .btn-save:disabled { background: var(--border); cursor: not-allowed; }
+
+        .btn-logout {
+            background: var(--danger);
+            color: white;
+            padding: 8px 16px;
+            font-size: 13px;
+            float: right;
+        }
+        .btn-logout:hover { background: #c53030; }
+
+        /* Link Card */
+        .link-card {
+            background: #1a365d;
+            border: 1px solid #2c5282;
+            padding: 14px 16px;
+            border-radius: 8px;
+            margin-bottom: 18px;
+            font-size: 12px;
+            display: none;
+        }
+        .link-card p { margin-bottom: 6px; color: var(--text-muted); }
+        .link-card span { color: #90cdf4; word-break: break-all; }
 
         /* Video Link Row */
         .video-link-row {
             display: grid;
             grid-template-columns: 1fr auto;
             gap: 8px;
-            align-items: center;
+            align-items: flex-start;
             margin-bottom: 10px;
         }
         .video-link-row input { margin-bottom: 0; }
 
         .btn-check {
-            padding: 12px 18px;
-            background: #d69e2e;
+            padding: 11px 16px;
+            background: var(--warning);
             color: white;
             border: none;
-            border-radius: 6px;
+            border-radius: 7px;
             cursor: pointer;
-            font-weight: bold;
+            font-weight: 700;
             font-size: 13px;
             white-space: nowrap;
-            width: auto;
+            transition: all 0.2s;
+            margin-top: 0;
         }
         .btn-check:hover { background: #b7791f; }
-        .btn-check:disabled { background: #4a5568; cursor: not-allowed; }
+        .btn-check:disabled { background: var(--border); cursor: not-allowed; }
 
         /* Check Result Card */
         .check-result {
             display: none;
-            background: #1a202c;
+            background: var(--bg-primary);
             border-radius: 8px;
             padding: 12px 16px;
             margin-bottom: 10px;
-            border: 1px solid #4a5568;
+            border: 1px solid var(--border);
             font-size: 13px;
         }
         .check-result.show { display: block; }
@@ -58,86 +214,206 @@
             display: flex;
             justify-content: space-between;
             align-items: center;
-            padding: 4px 0;
+            padding: 5px 0;
         }
-        .check-result .result-label { color: #a0aec0; }
-        .check-result .result-value { font-weight: bold; }
+        .check-result .result-label { color: var(--text-muted); }
+        .result-value { font-weight: 700; }
         .result-value.ok { color: #68d391; }
         .result-value.fail { color: #fc8181; }
         .result-value.loading { color: #f6ad55; }
-        .check-divider { border: none; border-top: 1px solid #4a5568; margin: 6px 0; }
+        .check-divider { border: none; border-top: 1px solid var(--border); margin: 5px 0; }
+
+        /* Status Bar */
+        .status {
+            text-align: center;
+            margin-top: 14px;
+            font-weight: 600;
+            min-height: 24px;
+            font-size: 14px;
+            padding: 8px;
+            border-radius: 6px;
+            transition: all 0.3s;
+        }
+
+        /* Saving overlay */
+        .saving-spinner {
+            display: inline-block;
+            width: 14px;
+            height: 14px;
+            border: 2px solid #fff;
+            border-top-color: transparent;
+            border-radius: 50%;
+            animation: spin 0.7s linear infinite;
+            vertical-align: middle;
+            margin-right: 6px;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        /* Category header row */
+        .cat-row {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            margin-bottom: 12px;
+        }
+        .cat-row select { margin-bottom: 0; flex: 1; }
+
+        /* Movie count badge */
+        .movie-count {
+            background: var(--accent-dark);
+            color: white;
+            padding: 4px 10px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 700;
+            white-space: nowrap;
+        }
+
+        /* Admin header */
+        .admin-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 20px;
+        }
+        .admin-header h2 { margin-bottom: 0; }
     </style>
 </head>
 <body>
 
 <div class="container">
-    <h2>🎬 Movie Data Center</h2>
 
-    <label>Admin Password:</label>
-    <input type="password" id="adminPass" placeholder="Enter Password" oninput="loadData()">
-
-    <label>Category ရွေးပါ:</label>
-    <select id="genreSelect" onchange="loadData()">
-        <option value="">-- ရွေးချယ်ပါ --</option>
-    </select>
-
-    <div class="link-card" id="linkCard" style="display:none;">
-        <p>Main Raw: <span id="urlMain" style="color:#90cdf4;"></span></p>
-        <p>Home Show: <span id="urlShow" style="color:#90cdf4;"></span></p>
+    <!-- LOGIN GATE -->
+    <div id="loginGate">
+        <h3>🔐 Movie Admin Panel</h3>
+        <label>Admin Password</label>
+        <input type="password" id="loginPassInput" placeholder="Password ထည့်ပါ"
+               onkeydown="if(event.key==='Enter') doLogin()">
+        <button class="btn-login" onclick="doLogin()">Login</button>
+        <div id="loginStatus" class="status"></div>
     </div>
 
-    <div class="section">
-        <h4>+ Add New Movie</h4>
-        <input type="text" id="mTitle" placeholder="Title">
+    <!-- MAIN CONTENT (Password မှန်မှ ပြမည်) -->
+    <div id="mainContent">
+        <div class="admin-header">
+            <h2>🎬 Movie Data Center</h2>
+            <button class="btn-logout" onclick="doLogout()">🚪 Logout</button>
+        </div>
 
-        <div class="grid-3">
-            <input type="text" id="mPhoto1" placeholder="Photo 1">
-            <input type="text" id="mPhoto2" placeholder="Photo 2">
-            <!-- Video Link + Check Button -->
+        <!-- Category Selector -->
+        <div class="section">
+            <h4>📂 Category ရွေးချယ်ရန်</h4>
+            <div class="cat-row">
+                <select id="genreSelect" onchange="loadData()">
+                    <option value="">-- Category ရွေးချယ်ပါ --</option>
+                </select>
+                <span class="movie-count" id="movieCount" style="display:none">0 movies</span>
+            </div>
+
+            <div class="link-card" id="linkCard">
+                <p>📌 Main Raw: <span id="urlMain"></span></p>
+                <p>🏠 Home Show: <span id="urlShow"></span></p>
+            </div>
+        </div>
+
+        <!-- Add New Movie -->
+        <div class="section">
+            <h4>➕ Add New Movie</h4>
+
+            <label>Title</label>
+            <input type="text" id="mTitle" placeholder="Movie Title">
+
+            <label>Photos</label>
+            <div class="grid-2">
+                <input type="text" id="mPhoto1" placeholder="Photo 1 URL">
+                <input type="text" id="mPhoto2" placeholder="Photo 2 URL">
+            </div>
+
+            <label>Video / Download URL</label>
             <div class="video-link-row">
-                <input type="text" id="mHD" placeholder="Video / Download URL">
+                <input type="text" id="mHD" placeholder="https://... video or download link">
                 <button class="btn-check" id="checkBtn" onclick="checkAll()">🔍 Check</button>
             </div>
-        </div>
 
-        <!-- Check Result Card -->
-        <div class="check-result" id="checkResult">
-            <div class="result-row">
-                <span class="result-label">📦 File Size</span>
-                <span class="result-value" id="rSize">—</span>
+            <!-- Check Result -->
+            <div class="check-result" id="checkResult">
+                <div class="result-row">
+                    <span class="result-label">📦 File Size</span>
+                    <span class="result-value" id="rSize">—</span>
+                </div>
+                <hr class="check-divider">
+                <div class="result-row">
+                    <span class="result-label">⏱️ Duration</span>
+                    <span class="result-value" id="rDuration">—</span>
+                </div>
             </div>
-            <hr class="check-divider">
-            <div class="result-row">
-                <span class="result-label">⏱️ Duration</span>
-                <span class="result-value" id="rDuration">—</span>
+
+            <label>Description</label>
+            <textarea id="mDesc" rows="4" placeholder="Movie description..."></textarea>
+
+            <div class="grid-3">
+                <div>
+                    <label>Rate</label>
+                    <input type="text" id="mRate" placeholder="Auto (6.5~9.5)">
+                </div>
+                <div>
+                    <label>Year</label>
+                    <input type="text" id="mYear" placeholder="Auto (N/A)">
+                </div>
+                <div>
+                    <label>Duration</label>
+                    <input type="text" id="mTime" placeholder="Auto from Check">
+                </div>
             </div>
+
+            <div class="grid-3">
+                <div>
+                    <label>Quality</label>
+                    <input type="text" id="mQuality" placeholder="Auto (HD)">
+                </div>
+                <div>
+                    <label>File Size</label>
+                    <input type="text" id="mSize" placeholder="Auto from Check">
+                </div>
+                <div>
+                    <label>Tags</label>
+                    <input type="text" id="mTags" placeholder="Action, Sci-fi">
+                </div>
+            </div>
+
+            <button class="btn-add" id="addBtn" onclick="addToJson()">⬆️ Add to Top</button>
         </div>
 
-        <textarea id="mDesc" rows="4" placeholder="Description"></textarea>
-        <div class="grid-3">
-            <input type="text" id="mRate" placeholder="Rate">
-            <input type="text" id="mYear" placeholder="Year">
-            <!-- Time field — auto fill ဖြင့် -->
-            <input type="text" id="mTime" placeholder="Time (Auto ထည့်ပေးမည်)">
+        <!-- Manual Editor -->
+        <div class="section">
+            <h4>✏️ Manual JSON Editor</h4>
+            <textarea id="jsonData" rows="12" placeholder="Category ရွေးပြီး Load လုပ်ပါ..."></textarea>
+            <button class="btn-save" id="saveBtn" onclick="saveAll()">💾 Save All Changes</button>
         </div>
-        <div class="grid-3">
-            <input type="text" id="mQuality" placeholder="Quality">
-            <!-- File Size field — auto fill ဖြင့် -->
-            <input type="text" id="mSize" placeholder="File Size (Auto ထည့်ပေးမည်)">
-            <input type="text" id="mTags" placeholder="Tags (Action, Sci-fi)">
-        </div>
-        <button class="btn-add" onclick="addToJson()">Add to Top</button>
-    </div>
 
-    <div class="section">
-        <h4>Manual Editor</h4>
-        <textarea id="jsonData" rows="10"></textarea>
-        <button class="btn-save" onclick="saveAll()">Save All Changes</button>
+        <div id="status" class="status"></div>
     </div>
-    <div id="status" class="status"></div>
 </div>
 
 <script>
+    // ============================================
+    // SESSION — sessionStorage သုံးမည် (tab close = logout)
+    // ============================================
+    const SESSION_KEY = 'mva_session';
+
+    function getSession() {
+        try { return sessionStorage.getItem(SESSION_KEY); } catch(e) { return null; }
+    }
+    function setSession(pass) {
+        try { sessionStorage.setItem(SESSION_KEY, pass); } catch(e) {}
+    }
+    function clearSession() {
+        try { sessionStorage.removeItem(SESSION_KEY); } catch(e) {}
+    }
+
+    // ============================================
+    // CATEGORIES
+    // ============================================
     const categories = [
         { id: "jav-mmsub", name: "Jav Mmsub" },
         { id: "jav-nosub", name: "Jav Nosub" },
@@ -148,7 +424,7 @@
         { id: "yoteshin", name: "Yoteshin" },
         { id: "slider-movie", name: "🎞️ Slider Movie (Auto)" },
         { id: "jvmmsub-ads", name: "Jvmmsub Ads" },
-        { id: "jvnosub-ads", name: "jvnosub Ads" },
+        { id: "jvnosub-ads", name: "Jvnosub Ads" },
         { id: "usammsub-ads", name: "Usammsub Ads" },
         { id: "usanosub-ads", name: "Usanosub Ads" },
         { id: "chinesemmsub-ads", name: "Chinesemmsub Ads" },
@@ -168,37 +444,140 @@
         { id: "ads-notice", name: "Ads & Notice" }
     ];
 
-    const select = document.getElementById('genreSelect');
-    categories.forEach(cat => {
-        let opt = document.createElement('option');
-        opt.value = cat.id;
-        opt.innerHTML = cat.name;
-        select.appendChild(opt);
+    // ============================================
+    // PAGE INIT
+    // ============================================
+    document.addEventListener('DOMContentLoaded', () => {
+        // Category list populate
+        const sel = document.getElementById('genreSelect');
+        categories.forEach(cat => {
+            const opt = document.createElement('option');
+            opt.value = cat.id;
+            opt.textContent = cat.name;
+            sel.appendChild(opt);
+        });
+
+        // Enter key on HD input
+        document.getElementById('mHD').addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') { e.preventDefault(); checkAll(); }
+        });
+
+        // Session check — already logged in ဆိုရင် main ပြမည်
+        const savedPass = getSession();
+        if (savedPass) {
+            showMain(savedPass);
+        }
+
+        // Login input enter
+        document.getElementById('loginPassInput').addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') doLogin();
+        });
     });
 
+    // ============================================
+    // LOGIN / LOGOUT
+    // ============================================
+    let adminPassword = '';
+
+    async function doLogin() {
+        const passInput = document.getElementById('loginPassInput');
+        const pass = passInput.value.trim();
+        if (!pass) {
+            showLoginStatus('Password ထည့်ပါ', '#fc8181');
+            return;
+        }
+
+        showLoginStatus('Verifying...', '#f6ad55');
+
+        // Password စစ်ဆေးမည် — test API call
+        try {
+            const res = await fetch(`/api?genre=ads-notice&pass=${encodeURIComponent(pass)}`);
+            if (res.ok) {
+                setSession(pass);
+                showMain(pass);
+            } else if (res.status === 429) {
+                showLoginStatus('Too many attempts. Please wait.', '#fc8181');
+            } else {
+                showLoginStatus('Password မှားနေပါသည်', '#fc8181');
+                passInput.value = '';
+            }
+        } catch (e) {
+            showLoginStatus('Connection error', '#fc8181');
+        }
+    }
+
+    function showMain(pass) {
+        adminPassword = pass;
+        document.getElementById('loginGate').style.display = 'none';
+        document.getElementById('mainContent').style.display = 'block';
+    }
+
+    function doLogout() {
+        clearSession();
+        adminPassword = '';
+        document.getElementById('loginGate').style.display = 'block';
+        document.getElementById('mainContent').style.display = 'none';
+        document.getElementById('loginPassInput').value = '';
+        document.getElementById('jsonData').value = '';
+        document.getElementById('genreSelect').value = '';
+        document.getElementById('linkCard').style.display = 'none';
+        document.getElementById('movieCount').style.display = 'none';
+        showLoginStatus('Logged out', '#68d391');
+    }
+
+    function showLoginStatus(msg, color) {
+        const el = document.getElementById('loginStatus');
+        el.textContent = msg;
+        el.style.color = color;
+    }
+
+    // ============================================
+    // LOAD DATA
+    // ============================================
     async function loadData() {
         const genre = document.getElementById('genreSelect').value;
-        const pass = document.getElementById('adminPass').value;
-        if (!genre) { document.getElementById('linkCard').style.display = "none"; return; }
+        if (!genre) {
+            document.getElementById('linkCard').style.display = 'none';
+            document.getElementById('movieCount').style.display = 'none';
+            return;
+        }
 
-        document.getElementById('linkCard').style.display = "block";
-        document.getElementById('urlMain').innerText = `${window.location.origin}/api?genre=${genre}`;
-        document.getElementById('urlShow').innerText = `${window.location.origin}/api?genre=${genre}-show`;
+        // Link card update
+        document.getElementById('linkCard').style.display = 'block';
+        document.getElementById('urlMain').textContent = `${window.location.origin}/api?genre=${genre}`;
+        document.getElementById('urlShow').textContent = `${window.location.origin}/api?genre=${genre}-show`;
 
-        if (!pass) return;
+        if (!adminPassword) return;
+
+        showStatus('Loading...', '#f6ad55');
         try {
-            const res = await fetch(`${window.location.origin}/api?genre=${genre}&pass=${pass}`);
+            const res = await fetch(`${window.location.origin}/api?genre=${genre}&pass=${encodeURIComponent(adminPassword)}`);
+            if (res.status === 429) {
+                showStatus('Too many requests. Please wait.', '#fc8181');
+                return;
+            }
             if (res.ok) {
                 const data = await res.json();
                 document.getElementById('jsonData').value = JSON.stringify(data, null, 2);
-                showStatus("Data Loaded", "lime");
+
+                // Movie count badge
+                const count = Array.isArray(data) ? data.length : '?';
+                const badge = document.getElementById('movieCount');
+                badge.textContent = `${count} items`;
+                badge.style.display = 'inline-block';
+
+                showStatus(`✅ Loaded — ${count} items`, '#68d391');
+            } else {
+                showStatus('Load failed', '#fc8181');
             }
-        } catch (e) { showStatus("Error", "red"); }
+        } catch (e) {
+            showStatus('Error: ' + e.message, '#fc8181');
+        }
     }
 
-    // ===================================================
-    // MAIN CHECK FUNCTION — Size + Duration တစ်ပြိုင်နက်
-    // ===================================================
+    // ============================================
+    // CHECK SIZE + DURATION
+    // ============================================
     async function checkAll() {
         const hdLink = document.getElementById('mHD').value.trim();
         const checkBtn = document.getElementById('checkBtn');
@@ -206,16 +585,12 @@
         const rSize = document.getElementById('rSize');
         const rDuration = document.getElementById('rDuration');
 
-        if (!hdLink) {
-            alert('Video / Download URL ကို အရင်ထည့်ပါ။');
-            return;
-        }
-        if (!hdLink.startsWith('http://') && !hdLink.startsWith('https://')) {
+        if (!hdLink) { alert('Video / Download URL ကို အရင်ထည့်ပါ။'); return; }
+        if (!/^https?:\/\//i.test(hdLink)) {
             alert('Valid URL မဟုတ်ပါ။ http:// သို့ https:// ဖြင့်စရပါမည်။');
             return;
         }
 
-        // Loading UI
         checkBtn.disabled = true;
         checkBtn.textContent = '⏳ ...';
         resultCard.classList.add('show');
@@ -225,29 +600,36 @@
         rDuration.textContent = 'စစ်ဆေးနေသည်...';
 
         try {
-            // Size + Duration တစ်ပြိုင်နက် စစ်မယ်
-            const proxyUrl = `${window.location.origin}/check-size?url=${encodeURIComponent(hdLink)}&type=all`;
+            // check-size ကိုလည်း admin pass နဲ့ ပေးပို့မည်
+            const proxyUrl = `/check-size?url=${encodeURIComponent(hdLink)}&type=all&pass=${encodeURIComponent(adminPassword)}`;
             const res = await fetch(proxyUrl);
+
+            if (res.status === 401) {
+                rSize.className = 'result-value fail';
+                rSize.textContent = 'Unauthorized';
+                rDuration.className = 'result-value fail';
+                rDuration.textContent = 'Unauthorized';
+                return;
+            }
+
             const result = await res.json();
 
-            // --- File Size ---
             if (result.sizeSuccess && result.size) {
                 rSize.className = 'result-value ok';
                 rSize.textContent = result.size;
-                document.getElementById('mSize').value = result.size; // auto fill
+                document.getElementById('mSize').value = result.size;
             } else {
                 rSize.className = 'result-value fail';
                 rSize.textContent = 'ရယူ၍မရပါ';
             }
 
-            // --- Duration ---
             if (result.durationSuccess && result.durationFormatted) {
                 rDuration.className = 'result-value ok';
                 rDuration.textContent = result.durationFormatted;
-                document.getElementById('mTime').value = result.durationFormatted; // auto fill
+                document.getElementById('mTime').value = result.durationFormatted;
             } else {
                 rDuration.className = 'result-value fail';
-                rDuration.textContent = 'ရယူ၍မရပါ (MP4 moov atom မတွေ့)';
+                rDuration.textContent = 'ရယူ၍မရပါ';
             }
 
         } catch (e) {
@@ -261,84 +643,120 @@
         }
     }
 
-    // Enter key support
-    document.addEventListener('DOMContentLoaded', () => {
-        document.getElementById('mHD').addEventListener('keydown', function(e) {
-            if (e.key === 'Enter') { e.preventDefault(); checkAll(); }
+    // ============================================
+    // ADD TO JSON
+    // ============================================
+    function addToJson() {
+        const title = document.getElementById('mTitle').value.trim();
+        if (!title) { alert('Title ထည့်ပါ'); return; }
+
+        const quality = document.getElementById('mQuality').value.trim() || 'HD';
+        const year = document.getElementById('mYear').value.trim() || 'N/A';
+        const rawRate = document.getElementById('mRate').value.trim();
+        const rate = rawRate || generateRandomRating();
+
+        const movie = {
+            title,
+            photo1: document.getElementById('mPhoto1').value.trim() || '',
+            photo2: document.getElementById('mPhoto2').value.trim() || '',
+            description: document.getElementById('mDesc').value.trim() || '',
+            rate,
+            HD: document.getElementById('mHD').value.trim() || '',
+            year,
+            time: document.getElementById('mTime').value.trim() || '',
+            genre: document.getElementById('mTags').value.trim()
+                ? document.getElementById('mTags').value.split(',').map(s => s.trim()).filter(Boolean)
+                : [],
+            File_Size: document.getElementById('mSize').value.trim() || '',
+            quality
+        };
+
+        let data = [];
+        try {
+            data = JSON.parse(document.getElementById('jsonData').value || '[]');
+        } catch (e) {
+            alert('JSON ပြင်ဆင်ပါ — JSON မမှန်ကန်ပါ');
+            return;
+        }
+
+        data.unshift(movie);
+        document.getElementById('jsonData').value = JSON.stringify(data, null, 2);
+
+        // Badge update
+        const badge = document.getElementById('movieCount');
+        badge.textContent = `${data.length} items`;
+        badge.style.display = 'inline-block';
+
+        showStatus(`✅ Added! "${title}" | ${quality} | ${year} | ⭐${rate} — SAVE နှိပ်ပါ`, '#fbd38d');
+
+        // Fields clear
+        ['mTitle','mPhoto1','mPhoto2','mHD','mDesc','mRate','mYear',
+         'mTime','mQuality','mSize','mTags'].forEach(id => {
+            document.getElementById(id).value = '';
         });
-    });
-   function addToJson() {
+        document.getElementById('checkResult').classList.remove('show');
+    }
 
-    // --- Auto Default Values ---
+    function generateRandomRating() {
+        const rand = Math.floor(Math.random() * (95 - 65 + 1)) + 65;
+        return (rand / 10).toFixed(1);
+    }
 
-    // Quality: မထည့်ရင် "HD" auto
-    const quality = document.getElementById('mQuality').value.trim() || "HD";
-
-    // Year: မထည့်ရင် "N/A" auto  
-    const year = document.getElementById('mYear').value.trim() || "N/A";
-
-    // Rating: မထည့်ရင် 6.5 ~ 9.5 ကြားက Random နံပတ်
-    const rawRate = document.getElementById('mRate').value.trim();
-    const rate = rawRate || generateRandomRating();
-
-    const movie = {
-        title: document.getElementById('mTitle').value || "",
-        photo1: document.getElementById('mPhoto1').value || "",
-        photo2: document.getElementById('mPhoto2').value || "",
-        description: document.getElementById('mDesc').value || "",
-        rate: rate,
-        HD: document.getElementById('mHD').value || "",
-        year: year,
-        time: document.getElementById('mTime').value || "",
-        genre: document.getElementById('mTags').value
-            ? document.getElementById('mTags').value.split(',').map(s => s.trim())
-            : [],
-        File_Size: document.getElementById('mSize').value || "",
-        quality: quality
-    };
-
-    let data = JSON.parse(document.getElementById('jsonData').value || "[]");
-    data.unshift(movie);
-    document.getElementById('jsonData').value = JSON.stringify(data, null, 2);
-    showStatus(`Added! Quality: ${quality} | Year: ${year} | Rate: ${rate} — SAVE နှိပ်ပါ`, "yellow");
-
-    // Clear all + hide result card
-    ['mTitle','mPhoto1','mPhoto2','mHD','mDesc','mRate','mYear',
-     'mTime','mQuality','mSize','mTags'].forEach(id => {
-        document.getElementById(id).value = "";
-    });
-    document.getElementById('checkResult').classList.remove('show');
-}
-
-// Random Rating Generator (6.5 ~ 9.5)
-function generateRandomRating() {
-    // 6.5, 6.6, 6.7 ... 9.4, 9.5 ထဲကမှ random ရွေးမယ်
-    const min = 65;
-    const max = 95;
-    const rand = Math.floor(Math.random() * (max - min + 1)) + min;
-    return (rand / 10).toFixed(1); // "7.3" ပုံစံ string ထွက်မယ်
-}
-
-
+    // ============================================
+    // SAVE ALL
+    // ============================================
     async function saveAll() {
         const genre = document.getElementById('genreSelect').value;
-        const data = document.getElementById('jsonData').value;
-        const password = document.getElementById('adminPass').value;
-        if (!genre || !password) { alert("Need Category and Password"); return; }
+        const rawData = document.getElementById('jsonData').value;
 
-        showStatus("Saving...", "orange");
-        const res = await fetch('/update', {
-            method: 'POST',
-            body: JSON.stringify({ genre, data, password })
-        });
-        if (res.ok) showStatus("Successfully Updated! ✅", "lime");
-        else showStatus("Failed!", "red");
+        if (!genre) { alert('Category ရွေးပါ'); return; }
+        if (!adminPassword) { alert('Password မရှိပါ — ထပ်မံ Login ဝင်ပါ'); return; }
+
+        // JSON validate
+        try { JSON.parse(rawData); } catch (e) {
+            alert('JSON မမှန်ကန်ပါ — စစ်ဆေးပြီးမှ Save လုပ်ပါ\n\n' + e.message);
+            return;
+        }
+
+        const saveBtn = document.getElementById('saveBtn');
+        saveBtn.disabled = true;
+        saveBtn.innerHTML = '<span class="saving-spinner"></span>Saving...';
+        showStatus('Saving...', '#f6ad55');
+
+        try {
+            const res = await fetch('/update', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ genre, data: rawData, password: adminPassword })
+            });
+
+            if (res.ok) {
+                showStatus('✅ Successfully Saved!', '#68d391');
+            } else if (res.status === 401) {
+                showStatus('❌ Password မှားနေပါသည်', '#fc8181');
+            } else if (res.status === 429) {
+                showStatus('⏳ Too many requests. Wait and retry.', '#fc8181');
+            } else {
+                const errText = await res.text();
+                showStatus('❌ Failed: ' + errText, '#fc8181');
+            }
+        } catch (e) {
+            showStatus('❌ Error: ' + e.message, '#fc8181');
+        } finally {
+            saveBtn.disabled = false;
+            saveBtn.textContent = '💾 Save All Changes';
+        }
     }
 
-    function showStatus(t, c) {
-        const s = document.getElementById('status');
-        s.innerText = t; s.style.color = c;
+    // ============================================
+    // HELPERS
+    // ============================================
+    function showStatus(msg, color) {
+        const el = document.getElementById('status');
+        el.textContent = msg;
+        el.style.color = color;
     }
 </script>
+
 </body>
 </html>
