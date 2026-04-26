@@ -1,3 +1,8 @@
+// ============================================
+// /functions/check-size.js
+// Admin only — KV လုံးဝ မသုံးပါ
+// ============================================
+
 export async function onRequestGet(context) {
     const { request, env } = context;
     const { searchParams } = new URL(request.url);
@@ -5,9 +10,6 @@ export async function onRequestGet(context) {
     const checkType = searchParams.get('type') || 'size';
     const pass = searchParams.get('pass');
 
-    // ============================================
-    // ADMIN ONLY — check-size သည် admin သာ သုံးနိုင်
-    // ============================================
     const SECURE_PASSWORD = env.ADMIN_PASSWORD;
     if (!pass || pass !== SECURE_PASSWORD) {
         return new Response(JSON.stringify({ error: "Unauthorized" }), {
@@ -20,7 +22,6 @@ export async function onRequestGet(context) {
         return jsonResponse({ error: "No URL provided" }, 400);
     }
 
-    // URL validation
     try {
         const parsedUrl = new URL(url);
         if (!['http:', 'https:'].includes(parsedUrl.protocol)) {
@@ -30,7 +31,6 @@ export async function onRequestGet(context) {
         return jsonResponse({ error: "Invalid URL" }, 400);
     }
 
-    // Internal/Private IP block (SSRF protection)
     const hostname = new URL(url).hostname;
     const privatePatterns = [
         /^localhost$/i,
@@ -39,16 +39,14 @@ export async function onRequestGet(context) {
         /^192\.168\./,
         /^172\.(1[6-9]|2[0-9]|3[01])\./,
         /^0\.0\.0\.0$/,
-        /^::1$/
+        /^::1$/,
+        /^169\.254\./  // link-local
     ];
     if (privatePatterns.some(p => p.test(hostname))) {
         return jsonResponse({ error: "Private IP not allowed" }, 403);
     }
 
     try {
-        // ============================================
-        // FILE SIZE CHECK (HEAD request)
-        // ============================================
         let sizeResult = { success: false, size: null, bytes: null };
 
         const headRes = await fetch(url, {
@@ -79,11 +77,7 @@ export async function onRequestGet(context) {
             );
         }
 
-        // ============================================
-        // DURATION CHECK
-        // ============================================
         let durationResult = { success: false };
-
         const isVideo = contentType.includes('video') ||
             /\.(mp4|mkv|mov|avi|webm)(\?|$)/i.test(url);
 
@@ -111,12 +105,9 @@ export async function onRequestGet(context) {
     }
 }
 
-// ============================================
-// MP4 DURATION PARSER
-// ============================================
 async function getDuration(url, totalBytes) {
     try {
-        const CHUNK_SIZE = 2 * 1024 * 1024; // 2MB
+        const CHUNK_SIZE = 2 * 1024 * 1024;
 
         const rangeRes = await fetch(url, {
             method: 'GET',
@@ -139,7 +130,6 @@ async function getDuration(url, totalBytes) {
             return { success: true, duration, durationFormatted: formatDuration(duration) };
         }
 
-        // File အဆုံးမှာ moov atom ရှိနိုင်လို့ ၅၀၀KB နောက်ဆုံး စစ်ဆေး
         if (totalBytes && totalBytes > CHUNK_SIZE) {
             const endStart = Math.max(0, totalBytes - 512 * 1024);
             const endRes = await fetch(url, {
