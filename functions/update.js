@@ -134,7 +134,7 @@ export async function onRequestPost(context) {
         // save လုပ်တိုင်း မဖျက်ရင် APK က old data မြင်နေမယ်
         // ============================================
         const url = new URL(request.url);
-        const baseOrigin = "https://mov-data.nakmui.ooguy.com";
+        const baseOrigin = url.origin;
         // ============================================
 // EDGE CACHE PURGE — အတိအကျတူအောင် ဖျက်နည်း
 // ============================================
