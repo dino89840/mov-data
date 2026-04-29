@@ -135,17 +135,28 @@ export async function onRequestPost(context) {
         // ============================================
         const url = new URL(request.url);
         const baseOrigin = url.origin;
-        const cache = caches.default;
-        const purgeUrls = [
-            `${baseOrigin}/api?genre=${body.genre}`,
-            `${baseOrigin}/api?genre=${body.genre}-show`
-        ];
-        if (sliderCategories.includes(body.genre)) {
-            purgeUrls.push(`${baseOrigin}/api?genre=slider-movie`);
-            purgeUrls.push(`${baseOrigin}/api?genre=slider-movie-show`);
-        }
-        // Synchronous purge (waitUntil မဟုတ်ဘဲ) → return ပြန်တဲ့အခါ cache ပျောက်ပြီးသား
-        await Promise.all(purgeUrls.map(u => cache.delete(new Request(u))));
+        // ============================================
+// EDGE CACHE PURGE — အတိအကျတူအောင် ဖျက်နည်း
+// ============================================
+const cache = caches.default;
+
+// ဖျက်ရမယ့် Genre စာရင်း
+const genresToPurge = [body.genre, `${body.genre}-show` ];
+if (sliderCategories.includes(body.genre)) {
+    genresToPurge.push("slider-movie", "slider-movie-show");
+}
+
+const purgePromises = genresToPurge.map(async (g) => {
+    // api.js မှာ သိမ်းခဲ့တဲ့ URL format အတိုင်း အတိအကျ ပြန်တည်ဆောက်တာပါ
+    const purgeUrl = new URL(`${baseOrigin}/api`);
+    purgeUrl.searchParams.set('genre', g);
+    
+    // Request Object အနေနဲ့ ဖျက်မှ cache.match နဲ့ ကိုက်ညီမှာပါ
+    return cache.delete(new Request(purgeUrl.toString()));
+});
+
+await Promise.all(purgePromises);
+
 
         return new Response(JSON.stringify({ success: true, message: "Updated successfully" }), {
             status: 200,
