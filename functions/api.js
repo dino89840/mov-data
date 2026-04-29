@@ -101,14 +101,16 @@ export async function onRequestGet(context) {
     // update.js က save လုပ်တိုင်း cache purge လုပ်ပေးတယ် → stale data မရှိ
     // stale-while-revalidate နဲ့ user အမြဲ မြန်မြန်ရ
     // ============================================
-    const response = new Response(responseBody, {
-        headers: {
-            "Content-Type": "application/json;charset=UTF-8",
-            "Access-Control-Allow-Origin": "*",
-            "Cache-Control": "public, max-age=0, s-maxage=7200, stale-while-revalidate=86400",
-            "X-Cache": "MISS"
-        }
-    });
+    const response = new Response(responseBody, { 
+    headers: { 
+        "Content-Type": "application/json;charset=UTF-8", 
+        "Access-Control-Allow-Origin": "*", 
+        // stale-while-revalidate ကို ဖြုတ်လိုက်ပြီ
+        "Cache-Control": "public, max-age=0, s-maxage=7200", 
+        "X-Cache": "MISS" 
+    } 
+});
+
 
     // Background မှာ edge cache မှာ သိမ်း
     context.waitUntil(cache.put(cacheKey, response.clone()));
