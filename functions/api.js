@@ -1,23 +1,20 @@
 // ============================================
 // /functions/api.js
-// APK request → unlimited, KV reads minimized
-// Browser → 404, Admin → direct KV access
+// Version-based cache busting + normalized cache key
 // ============================================
 
 export async function onRequestGet(context) {
     const { env, request } = context;
-    const { searchParams } = new URL(request.url);
-    const genre = searchParams.get('genre') || 'all';
-    const pass = searchParams.get('pass');
+    const url = new URL(request.url);
+    const genre = url.searchParams.get('genre') || 'all';
+    const pass = url.searchParams.get('pass');
 
     const userAgent = request.headers.get("user-agent") || "";
     const SECURE_PASSWORD = env.ADMIN_PASSWORD;
     const isAdmin = pass && pass === SECURE_PASSWORD;
 
     // ============================================
-    // STEP 1: BROWSER BLOCK (KV မသုံးခင်)
-    // APK က okhttp/Volley/Retrofit/cronet UA သုံးလို့ pass ဖြစ်တယ်
-    // Browser UA ဆိုရင်သာ block
+    // STEP 1: BROWSER BLOCK
     // ============================================
     if (!isAdmin) {
         const browserPatterns = /Mozilla\/|Chrome\/|Safari\/|Opera\/|Edg\/|Firefox\//i;
@@ -40,25 +37,7 @@ export async function onRequestGet(context) {
     }
 
     // ============================================
-    // STEP 2: EDGE CACHE စစ် (APK requests အတွက် KV bypass)
-    // ============================================
-    const cacheUrl = new URL(request.url);
-    cacheUrl.searchParams.delete('pass');
-    const cacheKey = new Request(cacheUrl.toString(), { method: 'GET' });
-    const cache = caches.default;
-
-    if (!isAdmin) {
-        const cached = await cache.match(cacheKey);
-        if (cached) {
-            // Edge cache hit → KV လုံးဝမသုံး
-            const newResponse = new Response(cached.body, cached);
-            newResponse.headers.set('X-Cache', 'HIT');
-            return newResponse;
-        }
-    }
-
-    // ============================================
-    // STEP 3: ADMIN ACCESS — direct KV, no cache
+    // STEP 2: ADMIN — direct KV, no cache
     // ============================================
     if (isAdmin) {
         const data = await env.MOVIE_DB.get(genre);
@@ -66,15 +45,35 @@ export async function onRequestGet(context) {
             headers: {
                 "Content-Type": "application/json;charset=UTF-8",
                 "Access-Control-Allow-Origin": "*",
-                "Cache-Control": "no-store, no-cache",
+                "Cache-Control": "no-store, no-cache, must-revalidate",
+                "Pragma": "no-cache",
                 "X-Cache": "BYPASS-ADMIN"
             }
         });
     }
 
     // ============================================
-    // STEP 4: KV FETCH (cache miss only)
-    // APK request → here only on first call per 2hr
+    // STEP 3: NORMALIZED CACHE KEY
+    // pass parameter ဖြုတ်၊ genre တစ်ခုတည်းပဲ ထား
+    // ဒါမှ APK က URL format မကွဲဘဲ ကိုက်ညီမှာ
+    // ============================================
+    const normalizedUrl = new URL(url.origin + '/api');
+    normalizedUrl.searchParams.set('genre', genre);
+    const cacheKey = new Request(normalizedUrl.toString(), { method: 'GET' });
+    const cache = caches.default;
+
+    // ============================================
+    // STEP 4: EDGE CACHE CHECK
+    // ============================================
+    const cached = await cache.match(cacheKey);
+    if (cached) {
+        const newResponse = new Response(cached.body, cached);
+        newResponse.headers.set('X-Cache', 'HIT');
+        return newResponse;
+    }
+
+    // ============================================
+    // STEP 5: KV FETCH
     // ============================================
     let responseBody;
 
@@ -83,7 +82,6 @@ export async function onRequestGet(context) {
         if (showData) {
             responseBody = showData;
         } else {
-            // Legacy fallback
             const mainGenre = genre.replace("-show", "");
             const rawData = await env.MOVIE_DB.get(mainGenre);
             let list = [];
@@ -96,23 +94,17 @@ export async function onRequestGet(context) {
     }
 
     // ============================================
-    // STEP 5: RESPONSE + LONG EDGE CACHE
-    // 2 နာရီ cache → KV reads 92% လျှော့
-    // update.js က save လုပ်တိုင်း cache purge လုပ်ပေးတယ် → stale data မရှိ
-    // stale-while-revalidate နဲ့ user အမြဲ မြန်မြန်ရ
+    // STEP 6: RESPONSE + CACHE
     // ============================================
-    const response = new Response(responseBody, { 
-    headers: { 
-        "Content-Type": "application/json;charset=UTF-8", 
-        "Access-Control-Allow-Origin": "*", 
-        // stale-while-revalidate ကို ဖြုတ်လိုက်ပြီ
-        "Cache-Control": "public, max-age=0, s-maxage=7200", 
-        "X-Cache": "MISS" 
-    } 
-});
+    const response = new Response(responseBody, {
+        headers: {
+            "Content-Type": "application/json;charset=UTF-8",
+            "Access-Control-Allow-Origin": "*",
+            "Cache-Control": "public, max-age=0, s-maxage=7200",
+            "X-Cache": "MISS"
+        }
+    });
 
-
-    // Background မှာ edge cache မှာ သိမ်း
     context.waitUntil(cache.put(cacheKey, response.clone()));
 
     return response;
