@@ -74,8 +74,7 @@ export async function onRequestPost(context) {
         await env.MOVIE_DB.put(body.genre, body.data);
 
         // ============================================
-        // PRE-COMPUTE "-show" key (Home 8 items)
-        // ဒီလိုလုပ်ရင် read လုပ်တဲ့အခါ slice လုပ်စရာမလို
+        // PRE-COMPUTE "-show" key
         // ============================================
         if (Array.isArray(parsedData)) {
             const showData = JSON.stringify(parsedData.slice(0, 8));
@@ -84,7 +83,6 @@ export async function onRequestPost(context) {
 
         // ============================================
         // SLIDER MOVIE AUTO UPDATE
-        // ပြောင်းတဲ့ category ကို body.data က ယူ (KV read ချွေ)
         // ============================================
         const sliderCategories = [
             "jav-mmsub", "jav-nosub",
@@ -96,7 +94,6 @@ export async function onRequestPost(context) {
         if (sliderCategories.includes(body.genre)) {
             const otherCats = sliderCategories.filter(c => c !== body.genre);
 
-            // Other categories သာ KV ကို ခေါ်
             const otherFetches = otherCats.map(async (cat) => {
                 const catData = await env.MOVIE_DB.get(cat);
                 let movies = [];
@@ -108,7 +105,6 @@ export async function onRequestPost(context) {
                 }));
             });
 
-            // Current category အတွက် body.data ကိုသုံး
             const currentMovies = (Array.isArray(parsedData) ? parsedData : [])
                 .slice(0, 3)
                 .map((movie, index) => ({
@@ -128,15 +124,14 @@ export async function onRequestPost(context) {
             context.waitUntil(
                 env.MOVIE_DB.put("slider-movie", JSON.stringify(sliderMovies))
             );
-            // Slider-show key လည်း update
             context.waitUntil(
                 env.MOVIE_DB.put("slider-movie-show", JSON.stringify(sliderMovies.slice(0, 8)))
             );
         }
 
         // ============================================
-        // EDGE CACHE PURGE
-        // အသစ် save ပြီးတဲ့အခါ edge cache မှာရှိတဲ့ data ဟောင်းကို ဖျက်
+        // EDGE CACHE PURGE — 2hr cache ဖြစ်တာကြောင့်
+        // save လုပ်တိုင်း မဖျက်ရင် APK က old data မြင်နေမယ်
         // ============================================
         const url = new URL(request.url);
         const baseOrigin = url.origin;
@@ -149,7 +144,8 @@ export async function onRequestPost(context) {
             purgeUrls.push(`${baseOrigin}/api?genre=slider-movie`);
             purgeUrls.push(`${baseOrigin}/api?genre=slider-movie-show`);
         }
-        context.waitUntil(Promise.all(purgeUrls.map(u => cache.delete(new Request(u)))));
+        // Synchronous purge (waitUntil မဟုတ်ဘဲ) → return ပြန်တဲ့အခါ cache ပျောက်ပြီးသား
+        await Promise.all(purgeUrls.map(u => cache.delete(new Request(u))));
 
         return new Response(JSON.stringify({ success: true, message: "Updated successfully" }), {
             status: 200,
