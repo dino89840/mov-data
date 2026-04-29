@@ -1,7 +1,7 @@
 // ============================================
 // /functions/api.js
-// APK user တွေအတွက် KV မသုံးဘဲ Edge Cache သာသုံး
-// Admin panel သာ KV ကိုတိုက်ရိုက်သုံးသည်
+// KV Limit အပြည့်အဝ သက်သာစေရန် ပြင်ဆင်ထားသည်
+// User (APK) များအတွက် Cache ကိုသာ တိုက်ရိုက်ပြန်ပေးမည်
 // ============================================
 
 export async function onRequestGet(context) {
@@ -12,74 +12,59 @@ export async function onRequestGet(context) {
 
     const userAgent = request.headers.get("user-agent") || "";
     const SECURE_PASSWORD = env.ADMIN_PASSWORD;
-    const isAdmin = pass && pass === SECURE_PASSWORD;
+    const isAdmin = (pass && pass === SECURE_PASSWORD);
 
     // ============================================
-    // STEP 1: ADMIN ACCESS — Password ပါရင် KV ကိုတိုက်ရိုက်ဖတ်
-    // Admin panel ကသာ pass= parameter ပါပြီးခေါ်မည်
+    // STEP 1: BROWSER BLOCK (Anti-Scraping)
+    // Admin မဟုတ်ရင် Browser တွေကို Block မည် (APK ကလာတာကိုပဲ လက်ခံမည်)
     // ============================================
-    if (isAdmin) {
-        const data = await env.MOVIE_DB.get(genre);
-        return new Response(data || "[]", {
-            headers: {
-                "Content-Type": "application/json;charset=UTF-8",
-                "Access-Control-Allow-Origin": "*",
-                "Cache-Control": "no-store, no-cache"
-            }
-        });
-    }
-
-    // ============================================
-    // STEP 2: BROWSER BLOCK (Admin မဟုတ်သောအခါ)
-    // Desktop browser တွေကို 404 ပြမည်
-    // APK / app တွေ browser UA မပါသောကြောင့် ဆက်သွားမည်
-    // ============================================
-    const browserPatterns = /Mozilla\/|Chrome\/|Safari\/|Opera\/|Edg\/|Firefox\//i;
-    if (browserPatterns.test(userAgent)) {
-        return new Response(
-            `<!DOCTYPE html>
-            <html><head><title>404 Not Found</title>
-            <style>body{font-family:sans-serif;text-align:center;padding:80px;background:#f7fafc;}
-            h1{color:#2d3748;font-size:48px;}p{color:#718096;}</style></head>
-            <body><h1>404</h1><p>The page you requested could not be found.</p></body></html>`,
-            {
-                status: 404,
-                headers: {
-                    "Content-Type": "text/html;charset=UTF-8",
-                    "Cache-Control": "public, max-age=3600"
+    if (!isAdmin) {
+        const browserPatterns = /Mozilla\/|Chrome\/|Safari\/|Opera\/|Edg\/|Firefox\//i;
+        if (browserPatterns.test(userAgent)) {
+            return new Response(
+                `<!DOCTYPE html>
+                <html><head><title>404 Not Found</title>
+                <style>body{font-family:sans-serif;text-align:center;padding:80px;background:#f7fafc;}
+                h1{color:#2d3748;font-size:48px;}p{color:#718096;}</style></head>
+                <body><h1>404</h1><p>The page you requested could not be found.</p></body></html>`,
+                {
+                    status: 404,
+                    headers: { "Content-Type": "text/html;charset=UTF-8" }
                 }
-            }
-        );
+            );
+        }
     }
 
     // ============================================
-    // STEP 3: APK/APP USER — Edge Cache စစ်ဆေး
-    // Cache hit ဖြစ်ရင် KV လုံးဝမသုံးဘဲ ပြန်ပေးမည်
+    // STEP 2: EDGE CACHE စစ်ဆေးခြင်း (အရေးကြီးဆုံးအပိုင်း)
+    // Cache Key ထဲမှာ Password မပါအောင် ဖြုတ်ထားမည်
     // ============================================
     const cacheUrl = new URL(request.url);
-    cacheUrl.searchParams.delete('pass');
+    cacheUrl.searchParams.delete('pass'); 
     const cacheKey = new Request(cacheUrl.toString(), { method: 'GET' });
     const cache = caches.default;
 
-    const cached = await cache.match(cacheKey);
-    if (cached) {
-        // Cache hit — KV လုံးဝမထိဘဲ ချက်ချင်းပြန်
-        return cached;
+    // User (APK) အတွက် Cache ရှိမရှိ အရင်စစ်မည်
+    // Cache ထဲမှာရှိရင် KV ကို လုံးဝ မသွားတော့ဘဲ ချက်ချင်းပြန်ပို့မည်။
+    if (!isAdmin) {
+        const cachedResponse = await cache.match(cacheKey);
+        if (cachedResponse) {
+            // 👈 KV ကိုမခေါ်ဘဲ Cache ကိုပဲ ပြန်ပေးလိုက်ပြီ (Unlimited Request ရပြီ)
+            return cachedResponse; 
+        }
     }
 
     // ============================================
-    // STEP 4: Cache miss ဖြစ်မှသာ KV ကိုဖတ်
-    // ဒီ code path ကို နည်းနိုင်သမျှနည်းအောင် Cache TTL ကိုမြင့်မားစွာ သတ်မှတ်
+    // STEP 3: KV DATABASE မှ ဖတ်ခြင်း
+    // Admin ဝင်ကြည့်ချိန် (သို့) User အတွက် Cache သက်တမ်းကုန်သွားချိန်မှသာ အလုပ်လုပ်မည်
     // ============================================
     let responseBody;
-
+    
     if (genre.endsWith("-show")) {
-        // Pre-computed show key ကိုသာ ဖတ်
         const showData = await env.MOVIE_DB.get(genre);
         if (showData) {
             responseBody = showData;
         } else {
-            // Fallback: main key မှ slice (legacy support)
             const mainGenre = genre.replace("-show", "");
             const rawData = await env.MOVIE_DB.get(mainGenre);
             let list = [];
@@ -92,23 +77,24 @@ export async function onRequestGet(context) {
     }
 
     // ============================================
-    // STEP 5: Response ပြုလုပ် + Edge Cache သိမ်း
-    // Cache TTL = 1 နာရီ (3600s)
-    // stale-while-revalidate = 24 နာရီ
-    // → APK user တွေ KV hit ကိုများစွာ လျှော့ချမည်
+    // STEP 4: HEADERS သတ်မှတ်ခြင်း နှင့် CACHE သိမ်းခြင်း
     // ============================================
     const response = new Response(responseBody, {
         headers: {
             "Content-Type": "application/json;charset=UTF-8",
             "Access-Control-Allow-Origin": "*",
-            // 1 နာရီ fresh cache + 24 နာရီ stale-while-revalidate
-            // → user တိုင်း unlimited request လုပ်နိုင်ပြီး KV မ hit ဖြစ်
-            "Cache-Control": "public, max-age=3600, s-maxage=3600, stale-while-revalidate=86400"
+            // Admin အတွက် Cache လုံးဝမခံပါ။ (Data အမှန်ကို အမြဲမြင်ရမည်)
+            // User(APK) အတွက် ၇၂၀၀ စက္ကန့် (၂ နာရီ) Cache ခံထားမည်။
+            "Cache-Control": isAdmin 
+                ? "no-store, no-cache, must-revalidate" 
+                : "public, max-age=7200, s-maxage=7200"
         }
     });
 
-    // Background မှာ Edge Cache သိမ်း
-    context.waitUntil(cache.put(cacheKey, response.clone()));
+    // APK User များအတွက် နောက်တစ်ခါ Request လာရင် တန်းယူလို့ရအောင် Cache ထဲ ထည့်သိမ်းမည်
+    if (!isAdmin) {
+        context.waitUntil(cache.put(cacheKey, response.clone()));
+    }
 
     return response;
 }
