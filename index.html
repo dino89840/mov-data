@@ -3,7 +3,6 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="referrer" content="no-referrer">
     <title>Movie Admin Pro</title>
     <style>
         :root {
@@ -47,6 +46,7 @@
             letter-spacing: 0.5px;
         }
 
+        /* Login Gate */
         #loginGate {
             text-align: center;
             padding: 40px 20px;
@@ -58,6 +58,7 @@
             display: block;
         }
 
+        /* Lock Overlay */
         #mainContent { display: none; }
 
         .section {
@@ -92,7 +93,6 @@
             font-size: 14px;
             margin-bottom: 10px;
             transition: border-color 0.2s;
-            font-family: inherit;
         }
 
         input:focus, textarea:focus, select:focus {
@@ -121,7 +121,6 @@
             font-weight: 700;
             font-size: 14px;
             transition: all 0.2s;
-            font-family: inherit;
         }
 
         .btn-login {
@@ -132,7 +131,6 @@
             margin-top: 5px;
         }
         .btn-login:hover { background: #2b6cb0; transform: translateY(-1px); }
-        .btn-login:disabled { background: var(--border); cursor: not-allowed; transform: none; }
 
         .btn-add {
             width: 100%;
@@ -153,25 +151,16 @@
         .btn-save:hover { background: #2b6cb0; }
         .btn-save:disabled { background: var(--border); cursor: not-allowed; }
 
-        /* ✅ NEW: Deduplicate button */
-        .btn-dedup {
-            width: 100%;
-            background: #6b46c1;
-            color: white;
-            padding: 13px;
-            margin-bottom: 10px;
-        }
-        .btn-dedup:hover { background: #553c9a; }
-        .btn-dedup:disabled { background: var(--border); cursor: not-allowed; }
-
         .btn-logout {
             background: var(--danger);
             color: white;
             padding: 8px 16px;
             font-size: 13px;
+            float: right;
         }
         .btn-logout:hover { background: #c53030; }
 
+        /* Link Card */
         .link-card {
             background: #1a365d;
             border: 1px solid #2c5282;
@@ -184,6 +173,7 @@
         .link-card p { margin-bottom: 6px; color: var(--text-muted); }
         .link-card span { color: #90cdf4; word-break: break-all; }
 
+        /* Video Link Row */
         .video-link-row {
             display: grid;
             grid-template-columns: 1fr auto;
@@ -209,6 +199,7 @@
         .btn-check:hover { background: #b7791f; }
         .btn-check:disabled { background: var(--border); cursor: not-allowed; }
 
+        /* Check Result Card */
         .check-result {
             display: none;
             background: var(--bg-primary);
@@ -232,6 +223,7 @@
         .result-value.loading { color: #f6ad55; }
         .check-divider { border: none; border-top: 1px solid var(--border); margin: 5px 0; }
 
+        /* Status Bar */
         .status {
             text-align: center;
             margin-top: 14px;
@@ -241,9 +233,9 @@
             padding: 8px;
             border-radius: 6px;
             transition: all 0.3s;
-            word-break: break-word;
         }
 
+        /* Saving overlay */
         .saving-spinner {
             display: inline-block;
             width: 14px;
@@ -257,6 +249,7 @@
         }
         @keyframes spin { to { transform: rotate(360deg); } }
 
+        /* Category header row */
         .cat-row {
             display: flex;
             gap: 10px;
@@ -265,6 +258,7 @@
         }
         .cat-row select { margin-bottom: 0; flex: 1; }
 
+        /* Movie count badge */
         .movie-count {
             background: var(--accent-dark);
             color: white;
@@ -275,33 +269,14 @@
             white-space: nowrap;
         }
 
-        /* ✅ NEW: Duplicate warning badge */
-        .dup-warning {
-            background: #c05621;
-            color: white;
-            padding: 4px 10px;
-            border-radius: 20px;
-            font-size: 12px;
-            font-weight: 700;
-            white-space: nowrap;
-            display: none;
-        }
-
+        /* Admin header */
         .admin-header {
             display: flex;
             align-items: center;
             justify-content: space-between;
             margin-bottom: 20px;
-            gap: 10px;
         }
-        .admin-header h2 { margin-bottom: 0; flex: 1; text-align: left; }
-
-        .session-info {
-            font-size: 11px;
-            color: var(--text-muted);
-            text-align: center;
-            margin-top: 8px;
-        }
+        .admin-header h2 { margin-bottom: 0; }
     </style>
 </head>
 <body>
@@ -312,27 +287,27 @@
     <div id="loginGate">
         <h3>🔐 Movie Admin Panel</h3>
         <label>Admin Password</label>
-        <input type="password" id="loginPassInput" placeholder="Password ထည့်ပါ" autocomplete="current-password">
-        <button class="btn-login" id="loginBtn">Login</button>
+        <input type="password" id="loginPassInput" placeholder="Password ထည့်ပါ"
+               onkeydown="if(event.key==='Enter') doLogin()">
+        <button class="btn-login" onclick="doLogin()">Login</button>
         <div id="loginStatus" class="status"></div>
     </div>
 
-    <!-- MAIN CONTENT -->
+    <!-- MAIN CONTENT (Password မှန်မှ ပြမည်) -->
     <div id="mainContent">
         <div class="admin-header">
             <h2>🎬 Movie Data Center</h2>
-            <button class="btn-logout" id="logoutBtn">🚪 Logout</button>
+            <button class="btn-logout" onclick="doLogout()">🚪 Logout</button>
         </div>
 
+        <!-- Category Selector -->
         <div class="section">
             <h4>📂 Category ရွေးချယ်ရန်</h4>
             <div class="cat-row">
-                <select id="genreSelect">
+                <select id="genreSelect" onchange="loadData()">
                     <option value="">-- Category ရွေးချယ်ပါ --</option>
                 </select>
-                <span class="movie-count" id="movieCount" style="display:none">0 items</span>
-                <!-- ✅ NEW: Duplicate warning -->
-                <span class="dup-warning" id="dupWarning">⚠️ 0 dup</span>
+                <span class="movie-count" id="movieCount" style="display:none">0 movies</span>
             </div>
 
             <div class="link-card" id="linkCard">
@@ -341,24 +316,26 @@
             </div>
         </div>
 
+        <!-- Add New Movie -->
         <div class="section">
             <h4>➕ Add New Movie</h4>
 
             <label>Title</label>
-            <input type="text" id="mTitle" placeholder="Movie Title" maxlength="200">
+            <input type="text" id="mTitle" placeholder="Movie Title">
 
             <label>Photos</label>
             <div class="grid-2">
-                <input type="text" id="mPhoto1" placeholder="Photo 1 URL" maxlength="500">
-                <input type="text" id="mPhoto2" placeholder="Photo 2 URL" maxlength="500">
+                <input type="text" id="mPhoto1" placeholder="Photo 1 URL">
+                <input type="text" id="mPhoto2" placeholder="Photo 2 URL">
             </div>
 
             <label>Video / Download URL</label>
             <div class="video-link-row">
-                <input type="text" id="mHD" placeholder="https://... video or download link" maxlength="1000">
-                <button class="btn-check" id="checkBtn">🔍 Check</button>
+                <input type="text" id="mHD" placeholder="https://... video or download link">
+                <button class="btn-check" id="checkBtn" onclick="checkAll()">🔍 Check</button>
             </div>
 
+            <!-- Check Result -->
             <div class="check-result" id="checkResult">
                 <div class="result-row">
                     <span class="result-label">📦 File Size</span>
@@ -372,227 +349,106 @@
             </div>
 
             <label>Description</label>
-            <textarea id="mDesc" rows="4" placeholder="Movie description..." maxlength="5000"></textarea>
+            <textarea id="mDesc" rows="4" placeholder="Movie description..."></textarea>
 
             <div class="grid-3">
                 <div>
                     <label>Rate</label>
-                    <input type="text" id="mRate" placeholder="Auto (6.5~9.5)" maxlength="10">
+                    <input type="text" id="mRate" placeholder="Auto (6.5~9.5)">
                 </div>
                 <div>
                     <label>Year</label>
-                    <input type="text" id="mYear" placeholder="Auto (N/A)" maxlength="10">
+                    <input type="text" id="mYear" placeholder="Auto (N/A)">
                 </div>
                 <div>
                     <label>Duration</label>
-                    <input type="text" id="mTime" placeholder="Auto from Check" maxlength="20">
+                    <input type="text" id="mTime" placeholder="Auto from Check">
                 </div>
             </div>
 
             <div class="grid-3">
                 <div>
                     <label>Quality</label>
-                    <input type="text" id="mQuality" placeholder="Auto (HD)" maxlength="20">
+                    <input type="text" id="mQuality" placeholder="Auto (HD)">
                 </div>
                 <div>
                     <label>File Size</label>
-                    <input type="text" id="mSize" placeholder="Auto from Check" maxlength="20">
+                    <input type="text" id="mSize" placeholder="Auto from Check">
                 </div>
                 <div>
                     <label>Tags</label>
-                    <input type="text" id="mTags" placeholder="Action, Sci-fi" maxlength="200">
+                    <input type="text" id="mTags" placeholder="Action, Sci-fi">
                 </div>
             </div>
 
-            <button class="btn-add" id="addBtn">⬆️ Add to Top</button>
+            <button class="btn-add" id="addBtn" onclick="addToJson()">⬆️ Add to Top</button>
         </div>
 
+        <!-- Manual Editor -->
         <div class="section">
             <h4>✏️ Manual JSON Editor</h4>
-            <textarea id="jsonData" rows="12" placeholder="Category ရွေးပြီး Load လုပ်ပါ..." spellcheck="false"></textarea>
-
-            <!-- ✅ NEW: Deduplicate button -->
-            <button class="btn-dedup" id="dedupBtn">🧹 Deduplicate (ထပ်နေတဲ့ ကားတွေ ဖျက်)</button>
-
-            <button class="btn-save" id="saveBtn">💾 Save All Changes</button>
+            <textarea id="jsonData" rows="12" placeholder="Category ရွေးပြီး Load လုပ်ပါ..."></textarea>
+            <button class="btn-save" id="saveBtn" onclick="saveAll()">💾 Save All Changes</button>
         </div>
 
         <div id="status" class="status"></div>
-        <div class="session-info" id="sessionInfo"></div>
     </div>
 </div>
 
 <script>
-(function() {
-    'use strict';
+    // ============================================
+    // SESSION — sessionStorage သုံးမည် (tab close = logout)
+    // ============================================
+    const SESSION_KEY = 'mva_session';
 
-    // ============================================
-    // CONFIG
-    // ============================================
-    const SESSION_KEY = 'mva_session_v2';
-    const SESSION_TIMEOUT_MS = 4 * 60 * 60 * 1000;
+    function getSession() {
+        try { return sessionStorage.getItem(SESSION_KEY); } catch(e) { return null; }
+    }
+    function setSession(pass) {
+        try { sessionStorage.setItem(SESSION_KEY, pass); } catch(e) {}
+    }
+    function clearSession() {
+        try { sessionStorage.removeItem(SESSION_KEY); } catch(e) {}
+    }
 
     // ============================================
     // CATEGORIES
     // ============================================
     const categories = [
-        { id: "jav-mmsub", name: "Jav Mmsub" },
-        { id: "jav-nosub", name: "Jav Nosub" },
-        { id: "usa-mmsub", name: "USA Mmsub" },
-        { id: "usa-nosub", name: "USA Nosub" },
-        { id: "chinese-mmsub", name: "Chinese Mmsub" },
-        { id: "chinese-nosub", name: "Chinese Nosub" },
-        { id: "yoteshin", name: "Yoteshin" },
-        { id: "slider-movie", name: "🎞️ Slider Movie (Auto)" },
-        { id: "jvmmsub-ads", name: "Jvmmsub Ads" },
-        { id: "jvnosub-ads", name: "Jvnosub Ads" },
-        { id: "usammsub-ads", name: "Usammsub Ads" },
-        { id: "usanosub-ads", name: "Usanosub Ads" },
-        { id: "chinesemmsub-ads", name: "Chinesemmsub Ads" },
-        { id: "chinesenosub-ads", name: "Chinesenosub Ads" },
-        { id: "request-movie", name: "Request Movie" },
-        { id: "telegram-channel", name: "Telegram Channel" },
-        { id: "top-ads", name: "Top Ads" },
-        { id: "middle-ads", name: "Middle Ads" },
-        { id: "Button-ads", name: "Button Ads" },
-        { id: "download-ads", name: "Download Ads" },
-        { id: "Searchbar-ads", name: "Searchbar Ads" },
-        { id: "Noti-ads", name: "Noti Ads" },
-        { id: "Moviedetail-ads", name: "Movie Detail Ads" },
-        { id: "Moviedetail-topads", name: "Movie Detail Top Ads" },
-        { id: "Moviedetail-buttonads", name: "Movie Detail Button Ads" },
-        { id: "Moviedetail-firsttopads", name: "Normalmovie First Top Ads" },
-        { id: "Yoteshin-allads", name: "Yoteshin All Detail Ads" },
-        { id: "ads-notice", name: "Ads & Notice" }
+        { id: "jav-mmsub",                    name: "Jav Mmsub" },
+        { id: "jav-nosub",                    name: "Jav Nosub" },
+        { id: "usa-mmsub",                    name: "USA Mmsub" },
+        { id: "usa-nosub",                    name: "USA Nosub" },
+        { id: "chinese-mmsub",                name: "Chinese Mmsub" },
+        { id: "chinese-nosub",                name: "Chinese Nosub" },
+        { id: "yoteshin",                     name: "Yoteshin" },
+        { id: "slider-movie",                 name: "🎞️ Slider Movie (Auto)" },
+        { id: "jvmmsub-ads",                  name: "Jvmmsub Ads" },
+        { id: "jvnosub-ads",                  name: "Jvnosub Ads" },
+        { id: "usammsub-ads",                 name: "Usammsub Ads" },
+        { id: "usanosub-ads",                 name: "Usanosub Ads" },
+        { id: "chinesemmsub-ads",             name: "Chinesemmsub Ads" },
+        { id: "chinesenosub-ads",             name: "Chinesenosub Ads" },
+        { id: "request-movie",                name: "Request Movie" },
+        { id: "telegram-channel",             name: "Telegram Channel" },
+        { id: "top-ads",                      name: "Top Ads" },
+        { id: "middle-ads",                   name: "Middle Ads" },
+        { id: "Button-ads",                   name: "Button Ads" },
+        { id: "download-ads",                 name: "Download Ads" },
+        { id: "Noti-ads",                     name: "Noti Ads" },
+        { id: "Moviedetail-ads",              name: "Movie Detail Ads" },
+        { id: "Moviedetail-topads",           name: "Movie Detail Top Ads" },
+        { id: "Moviedetail-buttonads",        name: "Movie Detail Button Ads" },
+        { id: "Moviedetail-firsttopads",      name: "Normalmovie First Top Ads" },
+        { id: "Yoteshin-allads",              name: "Yoteshin All Detail Ads" },
+        { id: "ads-notice",                   name: "Ads & Notice" }
     ];
 
-    const validGenreIds = new Set(categories.map(c => c.id));
-
     // ============================================
-    // STATE
+    // PAGE INIT
     // ============================================
-    let adminPassword = '';
-    let sessionTimer = null;
-
-    // ============================================
-    // SESSION
-    // ============================================
-    function obfuscate(str) {
-        try {
-            return btoa(encodeURIComponent(str).split('').reverse().join(''));
-        } catch(e) { return str; }
-    }
-    function deobfuscate(str) {
-        try {
-            return decodeURIComponent(atob(str).split('').reverse().join(''));
-        } catch(e) { return ''; }
-    }
-
-    function getSession() {
-        try {
-            const raw = sessionStorage.getItem(SESSION_KEY);
-            if (!raw) return null;
-            const obj = JSON.parse(raw);
-            if (!obj.t || !obj.p) return null;
-            if (Date.now() - obj.t > SESSION_TIMEOUT_MS) {
-                sessionStorage.removeItem(SESSION_KEY);
-                return null;
-            }
-            return deobfuscate(obj.p);
-        } catch(e) { return null; }
-    }
-    function setSession(pass) {
-        try {
-            sessionStorage.setItem(SESSION_KEY, JSON.stringify({
-                p: obfuscate(pass),
-                t: Date.now()
-            }));
-        } catch(e) {}
-    }
-    function clearSession() {
-        try { sessionStorage.removeItem(SESSION_KEY); } catch(e) {}
-    }
-    function refreshSessionTimer() {
-        if (sessionTimer) clearTimeout(sessionTimer);
-        sessionTimer = setTimeout(() => {
-            showStatus('⏰ Session expired. Please login again.', '#fc8181');
-            doLogout();
-        }, SESSION_TIMEOUT_MS);
-        updateSessionInfo();
-    }
-    function updateSessionInfo() {
-        const el = document.getElementById('sessionInfo');
-        if (el && adminPassword) {
-            const expireAt = new Date(Date.now() + SESSION_TIMEOUT_MS);
-            el.textContent = `Session active until ${expireAt.toLocaleTimeString()}`;
-        }
-    }
-
-    // ============================================
-    // SAFE FETCH
-    // ============================================
-    async function apiFetch(url, options) {
-        const res = await fetch(url, options);
-        if (res.status === 401) {
-            setTimeout(() => {
-                showStatus('❌ Session invalid. Please login again.', '#fc8181');
-                doLogout();
-            }, 100);
-        }
-        return res;
-    }
-
-    // ============================================
-    // INPUT VALIDATION
-    // ============================================
-    function isValidUrl(str) {
-        if (!str) return false;
-        try {
-            const u = new URL(str);
-            return u.protocol === 'http:' || u.protocol === 'https:';
-        } catch(e) { return false; }
-    }
-
-    // ============================================
-    // ✅ NEW: DUPLICATE DETECTION
-    // ============================================
-    function findDuplicates(data) {
-        if (!Array.isArray(data)) return { count: 0, keys: [] };
-        const seen = new Map();
-        const dupKeys = [];
-        data.forEach((item, i) => {
-            if (!item || typeof item !== 'object') return;
-            const key = `${(item.title || '').trim().toLowerCase()}||${(item.HD || '').trim()}`;
-            if (seen.has(key)) {
-                dupKeys.push(i);
-            } else {
-                seen.set(key, i);
-            }
-        });
-        return { count: dupKeys.length, keys: dupKeys };
-    }
-
-    function updateDupBadge(data) {
-        const badge = document.getElementById('dupWarning');
-        if (!Array.isArray(data) || data.length === 0) {
-            badge.style.display = 'none';
-            return;
-        }
-        const { count } = findDuplicates(data);
-        if (count > 0) {
-            badge.textContent = `⚠️ ${count} dup`;
-            badge.style.display = 'inline-block';
-        } else {
-            badge.style.display = 'none';
-        }
-    }
-
-    // ============================================
-    // DOM READY
-    // ============================================
-    document.addEventListener('DOMContentLoaded', init);
-
-    function init() {
+    document.addEventListener('DOMContentLoaded', () => {
+        // Category list populate
         const sel = document.getElementById('genreSelect');
         categories.forEach(cat => {
             const opt = document.createElement('option');
@@ -601,67 +457,51 @@
             sel.appendChild(opt);
         });
 
-        document.getElementById('loginBtn').addEventListener('click', doLogin);
-        document.getElementById('logoutBtn').addEventListener('click', doLogout);
-        document.getElementById('checkBtn').addEventListener('click', checkAll);
-        document.getElementById('addBtn').addEventListener('click', addToJson);
-        document.getElementById('saveBtn').addEventListener('click', saveAll);
-        document.getElementById('genreSelect').addEventListener('change', loadData);
-        // ✅ NEW: Deduplicate button
-        document.getElementById('dedupBtn').addEventListener('click', deduplicateJson);
-
-        document.getElementById('loginPassInput').addEventListener('keydown', (e) => {
-            if (e.key === 'Enter') doLogin();
-        });
+        // Enter key on HD input
         document.getElementById('mHD').addEventListener('keydown', (e) => {
             if (e.key === 'Enter') { e.preventDefault(); checkAll(); }
         });
 
+        // Session check — already logged in ဆိုရင် main ပြမည်
         const savedPass = getSession();
         if (savedPass) {
             showMain(savedPass);
         }
-    }
+
+        // Login input enter
+        document.getElementById('loginPassInput').addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') doLogin();
+        });
+    });
 
     // ============================================
     // LOGIN / LOGOUT
     // ============================================
+    let adminPassword = '';
+
     async function doLogin() {
         const passInput = document.getElementById('loginPassInput');
-        const loginBtn = document.getElementById('loginBtn');
-        const pass = passInput.value;
-
+        const pass = passInput.value.trim();
         if (!pass) {
             showLoginStatus('Password ထည့်ပါ', '#fc8181');
             return;
         }
 
-        loginBtn.disabled = true;
         showLoginStatus('Verifying...', '#f6ad55');
 
         try {
-            const res = await fetch(`/api?genre=ads-notice&pass=${encodeURIComponent(pass)}`, {
-                cache: 'no-store'
-            });
-
+            const res = await fetch(`/api?genre=ads-notice&pass=${encodeURIComponent(pass)}`);
             if (res.ok) {
                 setSession(pass);
                 showMain(pass);
-                showLoginStatus('', '');
-                passInput.value = '';
             } else if (res.status === 429) {
-                showLoginStatus('Too many attempts. Please wait 15 minutes.', '#fc8181');
-                passInput.value = '';
-            } else if (res.status === 401) {
+                showLoginStatus('Too many attempts. Please wait.', '#fc8181');
+            } else {
                 showLoginStatus('Password မှားနေပါသည်', '#fc8181');
                 passInput.value = '';
-            } else {
-                showLoginStatus(`Error (${res.status})`, '#fc8181');
             }
         } catch (e) {
-            showLoginStatus('Connection error. Please try again.', '#fc8181');
-        } finally {
-            loginBtn.disabled = false;
+            showLoginStatus('Connection error', '#fc8181');
         }
     }
 
@@ -669,13 +509,11 @@
         adminPassword = pass;
         document.getElementById('loginGate').style.display = 'none';
         document.getElementById('mainContent').style.display = 'block';
-        refreshSessionTimer();
     }
 
     function doLogout() {
         clearSession();
         adminPassword = '';
-        if (sessionTimer) { clearTimeout(sessionTimer); sessionTimer = null; }
         document.getElementById('loginGate').style.display = 'block';
         document.getElementById('mainContent').style.display = 'none';
         document.getElementById('loginPassInput').value = '';
@@ -683,8 +521,6 @@
         document.getElementById('genreSelect').value = '';
         document.getElementById('linkCard').style.display = 'none';
         document.getElementById('movieCount').style.display = 'none';
-        document.getElementById('dupWarning').style.display = 'none';
-        document.getElementById('sessionInfo').textContent = '';
         showLoginStatus('Logged out', '#68d391');
     }
 
@@ -699,124 +535,42 @@
     // ============================================
     async function loadData() {
         const genre = document.getElementById('genreSelect').value;
-        const linkCard = document.getElementById('linkCard');
-        const badge = document.getElementById('movieCount');
-
         if (!genre) {
-            linkCard.style.display = 'none';
-            badge.style.display = 'none';
-            document.getElementById('dupWarning').style.display = 'none';
-            document.getElementById('jsonData').value = '';
+            document.getElementById('linkCard').style.display = 'none';
+            document.getElementById('movieCount').style.display = 'none';
             return;
         }
 
-        if (!validGenreIds.has(genre)) {
-            showStatus('Invalid category', '#fc8181');
-            return;
-        }
-
-        linkCard.style.display = 'block';
-        document.getElementById('urlMain').textContent =
-            `${window.location.origin}/api?genre=${encodeURIComponent(genre)}`;
-        document.getElementById('urlShow').textContent =
-            `${window.location.origin}/api?genre=${encodeURIComponent(genre)}-show`;
+        // Link card update
+        document.getElementById('linkCard').style.display = 'block';
+        document.getElementById('urlMain').textContent = `${window.location.origin}/api?genre=${genre}`;
+        document.getElementById('urlShow').textContent = `${window.location.origin}/api?genre=${genre}-show`;
 
         if (!adminPassword) return;
 
         showStatus('Loading...', '#f6ad55');
         try {
-            const res = await apiFetch(
-                `/api?genre=${encodeURIComponent(genre)}&pass=${encodeURIComponent(adminPassword)}`,
-                { cache: 'no-store' }
-            );
-
+            const res = await fetch(`${window.location.origin}/api?genre=${genre}&pass=${encodeURIComponent(adminPassword)}`);
             if (res.status === 429) {
                 showStatus('Too many requests. Please wait.', '#fc8181');
                 return;
             }
-            if (!res.ok) {
-                showStatus(`Load failed (${res.status})`, '#fc8181');
-                return;
-            }
+            if (res.ok) {
+                const data = await res.json();
+                document.getElementById('jsonData').value = JSON.stringify(data, null, 2);
 
-            const data = await res.json();
-            document.getElementById('jsonData').value = JSON.stringify(data, null, 2);
+                const count = Array.isArray(data) ? data.length : '?';
+                const badge = document.getElementById('movieCount');
+                badge.textContent = `${count} items`;
+                badge.style.display = 'inline-block';
 
-            const count = Array.isArray(data) ? data.length :
-                (data && typeof data === 'object' ? Object.keys(data).length : '?');
-            badge.textContent = `${count} items`;
-            badge.style.display = 'inline-block';
-
-            // ✅ NEW: Duplicate detection on load
-            updateDupBadge(data);
-
-            const { count: dupCount } = findDuplicates(data);
-            if (dupCount > 0) {
-                showStatus(
-                    `✅ Loaded — ${count} items ⚠️ ${dupCount} duplicates တွေ့ရှိ! Deduplicate နှိပ်ပါ`,
-                    '#fbd38d'
-                );
-            } else {
                 showStatus(`✅ Loaded — ${count} items`, '#68d391');
+            } else {
+                showStatus('Load failed', '#fc8181');
             }
-
-            refreshSessionTimer();
         } catch (e) {
-            showStatus('Error loading data', '#fc8181');
+            showStatus('Error: ' + e.message, '#fc8181');
         }
-    }
-
-    // ============================================
-    // ✅ NEW: DEDUPLICATE
-    // ============================================
-    function deduplicateJson() {
-        const jsonField = document.getElementById('jsonData');
-        const badge = document.getElementById('movieCount');
-
-        let data;
-        try {
-            data = JSON.parse(jsonField.value || '[]');
-        } catch (e) {
-            alert('JSON မမှန်ကန်ပါ — စစ်ဆေးပါ');
-            return;
-        }
-
-        if (!Array.isArray(data)) {
-            alert('Array data မဟုတ်သောကြောင့် Deduplicate မလုပ်နိုင်ပါ');
-            return;
-        }
-
-        const before = data.length;
-        const seen = new Set();
-        const cleaned = data.filter(item => {
-            if (!item || typeof item !== 'object') return true;
-            const key = `${(item.title || '').trim().toLowerCase()}||${(item.HD || '').trim()}`;
-            if (seen.has(key)) return false;
-            seen.add(key);
-            return true;
-        });
-
-        const removed = before - cleaned.length;
-        if (removed === 0) {
-            showStatus('✅ Duplicate မရှိပါ — Data သန့်ရှင်းနေပြီ', '#68d391');
-            return;
-        }
-
-        if (!confirm(`${removed} ခု duplicate တွေ့ရှိသည်။ ဖျက်မလား?\n\nBefore: ${before} items → After: ${cleaned.length} items`)) {
-            return;
-        }
-
-        jsonField.value = JSON.stringify(cleaned, null, 2);
-        jsonField.dataset.dirty = '1';
-
-        badge.textContent = `${cleaned.length} items`;
-        badge.style.display = 'inline-block';
-        document.getElementById('dupWarning').style.display = 'none';
-
-        showStatus(
-            `🧹 ${removed} duplicates ဖျက်ပြီး — ${cleaned.length} items ကျန်တယ် — SAVE နှိပ်ပါ`,
-            '#fbd38d'
-        );
     }
 
     // ============================================
@@ -830,11 +584,10 @@
         const rDuration = document.getElementById('rDuration');
 
         if (!hdLink) { alert('Video / Download URL ကို အရင်ထည့်ပါ။'); return; }
-        if (!isValidUrl(hdLink)) {
+        if (!/^https?:\/\//i.test(hdLink)) {
             alert('Valid URL မဟုတ်ပါ။ http:// သို့ https:// ဖြင့်စရပါမည်။');
             return;
         }
-        if (!adminPassword) { alert('Login ဝင်ပါ'); return; }
 
         checkBtn.disabled = true;
         checkBtn.textContent = '⏳ ...';
@@ -846,7 +599,7 @@
 
         try {
             const proxyUrl = `/check-size?url=${encodeURIComponent(hdLink)}&type=all&pass=${encodeURIComponent(adminPassword)}`;
-            const res = await apiFetch(proxyUrl, { cache: 'no-store' });
+            const res = await fetch(proxyUrl);
 
             if (res.status === 401) {
                 rSize.className = 'result-value fail';
@@ -855,8 +608,6 @@
                 rDuration.textContent = 'Unauthorized';
                 return;
             }
-
-            if (!res.ok) throw new Error(`HTTP ${res.status}`);
 
             const result = await res.json();
 
@@ -878,12 +629,11 @@
                 rDuration.textContent = 'ရယူ၍မရပါ';
             }
 
-            refreshSessionTimer();
         } catch (e) {
             rSize.className = 'result-value fail';
-            rSize.textContent = 'Check failed';
+            rSize.textContent = 'Error: ' + e.message;
             rDuration.className = 'result-value fail';
-            rDuration.textContent = 'Check failed';
+            rDuration.textContent = 'Error';
         } finally {
             checkBtn.disabled = false;
             checkBtn.textContent = '🔍 Check';
@@ -897,70 +647,41 @@
         const title = document.getElementById('mTitle').value.trim();
         if (!title) { alert('Title ထည့်ပါ'); return; }
 
-        const photo1 = document.getElementById('mPhoto1').value.trim();
-        const photo2 = document.getElementById('mPhoto2').value.trim();
-        const hd = document.getElementById('mHD').value.trim();
-
-        if (photo1 && !isValidUrl(photo1)) {
-            if (!confirm('Photo 1 URL က မမှန်နိုင်ပါ။ ဆက်လုပ်မလား?')) return;
-        }
-        if (photo2 && !isValidUrl(photo2)) {
-            if (!confirm('Photo 2 URL က မမှန်နိုင်ပါ။ ဆက်လုပ်မလား?')) return;
-        }
-        if (hd && !isValidUrl(hd)) {
-            if (!confirm('Video URL က မမှန်နိုင်ပါ။ ဆက်လုပ်မလား?')) return;
-        }
-
         const quality = document.getElementById('mQuality').value.trim() || 'HD';
         const year = document.getElementById('mYear').value.trim() || 'N/A';
         const rawRate = document.getElementById('mRate').value.trim();
         const rate = rawRate || generateRandomRating();
 
-        const tagsRaw = document.getElementById('mTags').value.trim();
         const movie = {
             title,
-            photo1,
-            photo2,
+            photo1: document.getElementById('mPhoto1').value.trim() || '',
+            photo2: document.getElementById('mPhoto2').value.trim() || '',
             description: document.getElementById('mDesc').value.trim() || '',
             rate,
-            HD: hd,
+            HD: document.getElementById('mHD').value.trim() || '',
             year,
             time: document.getElementById('mTime').value.trim() || '',
-            genre: tagsRaw ? tagsRaw.split(',').map(s => s.trim()).filter(Boolean) : [],
+            genre: document.getElementById('mTags').value.trim()
+                ? document.getElementById('mTags').value.split(',').map(s => s.trim()).filter(Boolean)
+                : [],
             File_Size: document.getElementById('mSize').value.trim() || '',
             quality
         };
 
         let data = [];
-        const jsonField = document.getElementById('jsonData');
         try {
-            data = JSON.parse(jsonField.value || '[]');
-            if (!Array.isArray(data)) {
-                if (!confirm('လက်ရှိ data က array မဟုတ်ပါ။ Array အသစ်အဖြစ် overwrite လုပ်မလား?')) return;
-                data = [];
-            }
+            data = JSON.parse(document.getElementById('jsonData').value || '[]');
         } catch (e) {
             alert('JSON ပြင်ဆင်ပါ — JSON မမှန်ကန်ပါ');
             return;
         }
 
-        // ✅ NEW: Duplicate check before add
-        const dupKey = `${title.trim().toLowerCase()}||${hd.trim()}`;
-        const existingKeys = data.map(item =>
-            `${(item.title || '').trim().toLowerCase()}||${(item.HD || '').trim()}`
-        );
-        if (existingKeys.includes(dupKey)) {
-            if (!confirm(`"${title}" က ဒီ category မှာ ရှိပြီးသား — ထပ်ထည့်မလား?`)) return;
-        }
-
         data.unshift(movie);
-        jsonField.value = JSON.stringify(data, null, 2);
-        jsonField.dataset.dirty = '1';
+        document.getElementById('jsonData').value = JSON.stringify(data, null, 2);
 
         const badge = document.getElementById('movieCount');
         badge.textContent = `${data.length} items`;
         badge.style.display = 'inline-block';
-        updateDupBadge(data);
 
         showStatus(`✅ Added! "${title}" | ${quality} | ${year} | ⭐${rate} — SAVE နှိပ်ပါ`, '#fbd38d');
 
@@ -969,7 +690,6 @@
             document.getElementById(id).value = '';
         });
         document.getElementById('checkResult').classList.remove('show');
-        document.getElementById('mTitle').focus();
     }
 
     function generateRandomRating() {
@@ -983,78 +703,39 @@
     async function saveAll() {
         const genre = document.getElementById('genreSelect').value;
         const rawData = document.getElementById('jsonData').value;
-        const saveBtn = document.getElementById('saveBtn');
 
         if (!genre) { alert('Category ရွေးပါ'); return; }
-        if (!validGenreIds.has(genre)) { alert('Invalid category'); return; }
         if (!adminPassword) { alert('Password မရှိပါ — ထပ်မံ Login ဝင်ပါ'); return; }
 
-        let parsed;
-        try {
-            parsed = JSON.parse(rawData);
-        } catch (e) {
+        try { JSON.parse(rawData); } catch (e) {
             alert('JSON မမှန်ကန်ပါ — စစ်ဆေးပြီးမှ Save လုပ်ပါ\n\n' + e.message);
             return;
         }
 
-        const itemCount = Array.isArray(parsed) ? parsed.length : 1;
-
-        // ✅ NEW: Duplicate warning on save
-        const { count: dupCount } = findDuplicates(parsed);
-        let confirmMsg = `"${genre}" category ထဲက ${itemCount} items တွေကို Save လုပ်မလား?`;
-        if (dupCount > 0) {
-            confirmMsg += `\n\n⚠️ ${dupCount} duplicates ရှိနေသည် — Server မှာ auto-deduplicate လုပ်ပေးပါမည်`;
-        }
-        if (!confirm(confirmMsg)) return;
-
+        const saveBtn = document.getElementById('saveBtn');
         saveBtn.disabled = true;
         saveBtn.innerHTML = '<span class="saving-spinner"></span>Saving...';
         showStatus('Saving...', '#f6ad55');
 
         try {
-            const res = await apiFetch('/update', {
+            const res = await fetch('/update', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                cache: 'no-store',
                 body: JSON.stringify({ genre, data: rawData, password: adminPassword })
             });
 
             if (res.ok) {
-                const result = await res.json().catch(() => ({}));
-                const savedCount = result.savedCount;
-                document.getElementById('dupWarning').style.display = 'none';
-
-                // ✅ Update badge with actual saved count (after dedup)
-                if (savedCount !== null && savedCount !== undefined) {
-                    const badge = document.getElementById('movieCount');
-                    badge.textContent = `${savedCount} items`;
-                    badge.style.display = 'inline-block';
-
-                    if (savedCount < itemCount) {
-                        showStatus(
-                            `✅ Saved! ${savedCount} items (${itemCount - savedCount} duplicates ဖျက်ပြီး)`,
-                            '#68d391'
-                        );
-                    } else {
-                        showStatus('✅ Successfully Saved!', '#68d391');
-                    }
-                } else {
-                    showStatus('✅ Successfully Saved!', '#68d391');
-                }
-
-                document.getElementById('jsonData').dataset.dirty = '0';
-                refreshSessionTimer();
+                showStatus('✅ Successfully Saved!', '#68d391');
             } else if (res.status === 401) {
                 showStatus('❌ Password မှားနေပါသည်', '#fc8181');
             } else if (res.status === 429) {
                 showStatus('⏳ Too many requests. Wait and retry.', '#fc8181');
-            } else if (res.status === 413) {
-                showStatus('❌ Data too large (max 5MB)', '#fc8181');
             } else {
-                showStatus(`❌ Failed (${res.status})`, '#fc8181');
+                const errText = await res.text();
+                showStatus('❌ Failed: ' + errText, '#fc8181');
             }
         } catch (e) {
-            showStatus('❌ Network error. Please retry.', '#fc8181');
+            showStatus('❌ Error: ' + e.message, '#fc8181');
         } finally {
             saveBtn.disabled = false;
             saveBtn.textContent = '💾 Save All Changes';
@@ -1069,21 +750,6 @@
         el.textContent = msg;
         el.style.color = color;
     }
-
-    window.addEventListener('beforeunload', (e) => {
-        const jsonField = document.getElementById('jsonData');
-        if (adminPassword && jsonField && jsonField.value.trim() && jsonField.dataset.dirty === '1') {
-            e.preventDefault();
-            e.returnValue = '';
-        }
-    });
-    document.addEventListener('input', (e) => {
-        if (e.target && e.target.id === 'jsonData') {
-            e.target.dataset.dirty = '1';
-        }
-    });
-
-})();
 </script>
 
 </body>
