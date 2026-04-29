@@ -25,7 +25,7 @@ const CORS_HEADERS = {
   "Access-Control-Max-Age": "86400"
 };
 
-const MAX_DATA_BYTES = 5 * 1024 * 1024; // 5 MB
+const MAX_DATA_BYTES = 5 * 1024 * 1024;
 
 export async function onRequestOptions() {
   return new Response(null, { headers: CORS_HEADERS });
@@ -36,9 +36,6 @@ export async function onRequestPost(context) {
   const clientIP = request.headers.get("cf-connecting-ip") || "unknown";
 
   try {
-    // ============================================
-    // CONTENT-LENGTH PRE-CHECK (parse မလုပ်ခင် early reject)
-    // ============================================
     const contentLength = parseInt(request.headers.get("content-length") || "0", 10);
     if (contentLength > MAX_DATA_BYTES + 1024) {
       return jsonError("Payload too large", 413);
@@ -53,9 +50,6 @@ export async function onRequestPost(context) {
 
     const SECURE_PASSWORD = env.ADMIN_PASSWORD;
 
-    // ============================================
-    // PASSWORD VALIDATION (constant-time + rate limit)
-    // ============================================
     if (!body.password || !SECURE_PASSWORD || !safeEqual(body.password, SECURE_PASSWORD)) {
       const failKey = `fail_${clientIP}`;
       let fails = 0;
@@ -67,23 +61,17 @@ export async function onRequestPost(context) {
         fails = 0;
       }
       fails++;
-
       context.waitUntil(
         env.MOVIE_DB.put(failKey, String(fails), { expirationTtl: 900 })
       );
-
       if (fails >= 5) {
         return jsonError("Too many failed attempts. Locked for 15 minutes.", 429);
       }
       return jsonError("Unauthorized", 401);
     }
 
-    // Password OK → fail counter clear
     context.waitUntil(env.MOVIE_DB.delete(`fail_${clientIP}`));
 
-    // ============================================
-    // INPUT VALIDATION
-    // ============================================
     if (!isValidGenre(body.genre)) {
       return jsonError("Invalid genre", 400);
     }
@@ -91,7 +79,6 @@ export async function onRequestPost(context) {
       return jsonError("Invalid data", 400);
     }
 
-    // Real byte size စစ် (UTF-8)
     const dataBytes = new TextEncoder().encode(body.data).length;
     if (dataBytes > MAX_DATA_BYTES) {
       return jsonError("Data too large (max 5MB)", 413);
@@ -104,26 +91,40 @@ export async function onRequestPost(context) {
       return jsonError("Invalid JSON data", 400);
     }
 
-    // Array သို့မဟုတ် Object မဟုတ်ရင် reject
     if (parsedData === null || typeof parsedData !== 'object') {
       return jsonError("Data must be an array or object", 400);
     }
 
     // ============================================
-    // KV SAVE — Main key (await — must succeed before slider rebuild)
-    // ============================================
-    await env.MOVIE_DB.put(body.genre, body.data);
-
-    // ============================================
-    // PRE-COMPUTE "-show" key
+    // ✅ FIX: AUTO DEDUPLICATE before save
+    // title + HD URL combo နဲ့ duplicate စစ်
     // ============================================
     if (Array.isArray(parsedData)) {
+      const seen = new Set();
+      parsedData = parsedData.filter(item => {
+        if (!item || typeof item !== 'object') return true;
+        const key = `${(item.title || '').trim().toLowerCase()}||${(item.HD || '').trim()}`;
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      });
+    }
+
+    // Deduplicate လုပ်ပြီးမှ stringify ပြန်လုပ်
+    const cleanData = JSON.stringify(parsedData);
+
+    // KV Save — main key
+    await env.MOVIE_DB.put(body.genre, cleanData);
+
+    // Pre-compute -show key
+    if (Array.isArray(parsedData)) {
       const showData = JSON.stringify(parsedData.slice(0, 8));
-      context.waitUntil(env.MOVIE_DB.put(`${body.genre}-show`, showData));
+      // ✅ FIX: await နဲ့ save — waitUntil မသုံး (purge မလုပ်ခင် save ပြီးဖို့)
+      await env.MOVIE_DB.put(`${body.genre}-show`, showData);
     }
 
     // ============================================
-    // SLIDER MOVIE AUTO UPDATE
+    // SLIDER AUTO UPDATE
     // ============================================
     const sliderCategories = [
       "jav-mmsub", "jav-nosub",
@@ -167,7 +168,6 @@ export async function onRequestPost(context) {
         const allMovies = [...currentMovies];
         otherResults.forEach(catMovies => allMovies.push(...catMovies));
 
-        // Stable sort by order_index, then category name (deterministic)
         allMovies.sort((a, b) => {
           if (a._order_index !== b._order_index) {
             return a._order_index - b._order_index;
@@ -182,7 +182,6 @@ export async function onRequestPost(context) {
         const sliderJson = JSON.stringify(sliderMovies);
         const sliderShowJson = JSON.stringify(sliderMovies.slice(0, 8));
 
-        // Slider write ကို await လုပ် — purge မလုပ်ခင် save ပြီးအောင်
         await Promise.all([
           env.MOVIE_DB.put("slider-movie", sliderJson),
           env.MOVIE_DB.put("slider-movie-show", sliderShowJson)
@@ -190,22 +189,24 @@ export async function onRequestPost(context) {
 
         sliderUpdated = true;
       } catch (e) {
-        // Slider update fail ပေမယ့် main save အောင်မြင်လို့ ဆက်လုပ်
         sliderUpdated = false;
       }
     }
 
     // ============================================
-    // EDGE CACHE PURGE
-    // save လုပ်တိုင်း မဖျက်ရင် APK က old data မြင်နေမယ်
+    // ✅ FIX: COMPLETE EDGE CACHE PURGE
     // ============================================
     const url = new URL(request.url);
     const baseOrigin = url.origin;
     const cache = caches.default;
 
     const purgeUrls = [
+      // Main genre
       `${baseOrigin}/api?genre=${encodeURIComponent(body.genre)}`,
-      `${baseOrigin}/api?genre=${encodeURIComponent(body.genre)}-show`
+      // ✅ FIX: -show ကို သပ်သပ် encode
+      `${baseOrigin}/api?genre=${encodeURIComponent(body.genre + "-show")}`,
+      // ✅ FIX: "all" genre ပါ purge
+      `${baseOrigin}/api?genre=all`,
     ];
 
     if (sliderUpdated) {
@@ -213,7 +214,6 @@ export async function onRequestPost(context) {
       purgeUrls.push(`${baseOrigin}/api?genre=slider-movie-show`);
     }
 
-    // Synchronous purge → return ပြန်တဲ့အခါ cache ပျောက်ပြီးသား
     await Promise.all(
       purgeUrls.map(u =>
         cache.delete(new Request(u, { method: 'GET' })).catch(() => false)
@@ -223,7 +223,9 @@ export async function onRequestPost(context) {
     return new Response(JSON.stringify({
       success: true,
       message: "Updated successfully",
-      sliderUpdated
+      sliderUpdated,
+      // ✅ deduplicate လုပ်ပြီးတဲ့ count ပြပေး
+      savedCount: Array.isArray(parsedData) ? parsedData.length : null
     }), {
       status: 200,
       headers: {
@@ -234,7 +236,6 @@ export async function onRequestPost(context) {
     });
 
   } catch (e) {
-    // Internal error message ကို client ကို မပြ (info leak ကာကွယ်)
     return jsonError("Server error", 500);
   }
 }
