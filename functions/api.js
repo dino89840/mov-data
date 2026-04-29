@@ -163,7 +163,7 @@ h1{color:#2d3748;font-size:48px;}p{color:#718096;}</style></head>
     headers: {
       "Content-Type": "application/json;charset=UTF-8",
       "Access-Control-Allow-Origin": "*",
-      "Cache-Control": "public, max-age=60, s-maxage=7200, stale-while-revalidate=86400",
+      "Cache-Control": "public, max-age=0, s-maxage=1800, stale-while-revalidate=86400",
       "X-Cache": "MISS"
     }
   });
