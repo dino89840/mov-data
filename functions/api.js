@@ -105,7 +105,7 @@ export async function onRequestGet(context) {
         headers: {
             "Content-Type": "application/json;charset=UTF-8",
             "Access-Control-Allow-Origin": "*",
-            "Cache-Control": "public, max-age=7200, s-maxage=7200, stale-while-revalidate=86400",
+            "Cache-Control": "public, max-age=0, s-maxage=7200, stale-while-revalidate=86400",
             "X-Cache": "MISS"
         }
     });
