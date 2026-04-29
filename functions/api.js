@@ -1,6 +1,7 @@
 // ============================================
 // /functions/api.js
-// KV usage ကို ၈၀%+ လျှော့ချထားပါသည်
+// APK request → unlimited, KV reads minimized
+// Browser → 404, Admin → direct KV access
 // ============================================
 
 export async function onRequestGet(context) {
@@ -10,13 +11,13 @@ export async function onRequestGet(context) {
     const pass = searchParams.get('pass');
 
     const userAgent = request.headers.get("user-agent") || "";
-    const clientIP = request.headers.get("cf-connecting-ip") ||
-                     request.headers.get("x-forwarded-for") || "unknown";
     const SECURE_PASSWORD = env.ADMIN_PASSWORD;
     const isAdmin = pass && pass === SECURE_PASSWORD;
 
     // ============================================
-    // STEP 1: BROWSER BLOCK အရင်စစ် (KV မသုံးခင်)
+    // STEP 1: BROWSER BLOCK (KV မသုံးခင်)
+    // APK က okhttp/Volley/Retrofit/cronet UA သုံးလို့ pass ဖြစ်တယ်
+    // Browser UA ဆိုရင်သာ block
     // ============================================
     if (!isAdmin) {
         const browserPatterns = /Mozilla\/|Chrome\/|Safari\/|Opera\/|Edg\/|Firefox\//i;
@@ -39,35 +40,25 @@ export async function onRequestGet(context) {
     }
 
     // ============================================
-    // STEP 2: EDGE CACHE စစ်ဆေး (KV မသုံးခင်)
-    // Admin မဟုတ်ရင် Cloudflare edge cache ကိုသုံးမည်
+    // STEP 2: EDGE CACHE စစ် (APK requests အတွက် KV bypass)
     // ============================================
     const cacheUrl = new URL(request.url);
-    cacheUrl.searchParams.delete('pass'); // pass ကို cache key မှ ဖယ်
+    cacheUrl.searchParams.delete('pass');
     const cacheKey = new Request(cacheUrl.toString(), { method: 'GET' });
     const cache = caches.default;
 
     if (!isAdmin) {
         const cached = await cache.match(cacheKey);
         if (cached) {
-            // Edge cache hit — KV လုံးဝမသုံးဘဲ ပြန်
-            return cached;
+            // Edge cache hit → KV လုံးဝမသုံး
+            const newResponse = new Response(cached.body, cached);
+            newResponse.headers.set('X-Cache', 'HIT');
+            return newResponse;
         }
     }
 
     // ============================================
-    // STEP 3: RATE LIMITING (lightweight)
-    // KV ကိုမသုံးဘဲ in-memory counter သုံးမည်
-    // ပြီး abuse များတဲ့ IP သာ KV မှာ ban list သိမ်းမည်
-    // ============================================
-    if (!isAdmin) {
-        // KV-based rate limit ကို ပယ်ဖျက်လိုက်တယ် (KV သုံးစရာများလို့)
-        // Cloudflare က default DDoS protection ရှိပြီးသား
-        // ပိုလိုချင်ရင် Cloudflare WAF Rate Limiting Rule ကို Dashboard မှာ setup လုပ်ပါ
-    }
-
-    // ============================================
-    // STEP 4: ADMIN ACCESS — Password ပါရင် အကုန်ပေး
+    // STEP 3: ADMIN ACCESS — direct KV, no cache
     // ============================================
     if (isAdmin) {
         const data = await env.MOVIE_DB.get(genre);
@@ -75,26 +66,24 @@ export async function onRequestGet(context) {
             headers: {
                 "Content-Type": "application/json;charset=UTF-8",
                 "Access-Control-Allow-Origin": "*",
-                "Cache-Control": "no-store, no-cache"
+                "Cache-Control": "no-store, no-cache",
+                "X-Cache": "BYPASS-ADMIN"
             }
         });
     }
 
     // ============================================
-    // STEP 5: HOME SHOW ENDPOINT
-    // သီးသန့် "{genre}-show" key မှာ pre-computed 8 items သိမ်းထားမည်
-    // (update.js မှာ auto-create လုပ်)
+    // STEP 4: KV FETCH (cache miss only)
+    // APK request → here only on first call per 2hr
     // ============================================
     let responseBody;
-    let kvKey = genre;
 
     if (genre.endsWith("-show")) {
-        // Pre-computed key ကိုပဲ direct fetch
         const showData = await env.MOVIE_DB.get(genre);
         if (showData) {
             responseBody = showData;
         } else {
-            // Fallback: main key ကို fetch ပြီး slice (legacy support)
+            // Legacy fallback
             const mainGenre = genre.replace("-show", "");
             const rawData = await env.MOVIE_DB.get(mainGenre);
             let list = [];
@@ -102,24 +91,26 @@ export async function onRequestGet(context) {
             responseBody = JSON.stringify(list.slice(0, 8));
         }
     } else {
-        // Normal full list
         const data = await env.MOVIE_DB.get(genre);
         responseBody = data || "[]";
     }
 
     // ============================================
-    // STEP 6: RESPONSE + EDGE CACHE STORE
+    // STEP 5: RESPONSE + LONG EDGE CACHE
+    // 2 နာရီ cache → KV reads 92% လျှော့
+    // update.js က save လုပ်တိုင်း cache purge လုပ်ပေးတယ် → stale data မရှိ
+    // stale-while-revalidate နဲ့ user အမြဲ မြန်မြန်ရ
     // ============================================
     const response = new Response(responseBody, {
         headers: {
             "Content-Type": "application/json;charset=UTF-8",
             "Access-Control-Allow-Origin": "*",
-            // 10 မိနစ် edge cache — KV reads ကို 90%+ လျှော့ချ
-            "Cache-Control": "public, max-age=600, s-maxage=600"
+            "Cache-Control": "public, max-age=7200, s-maxage=7200, stale-while-revalidate=86400",
+            "X-Cache": "MISS"
         }
     });
 
-    // Edge cache မှာသိမ်း (background)
+    // Background မှာ edge cache မှာ သိမ်း
     context.waitUntil(cache.put(cacheKey, response.clone()));
 
     return response;
