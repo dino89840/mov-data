@@ -1,7 +1,7 @@
 // ============================================
 // /functions/api.js
-// ⚠️ TESTING MODE ⚠️ 
-// Cache အားလုံးကို လုံးဝ ပိတ်ထားပါသည်။ စမ်းသပ်ပြီးပါက မူလကုဒ်သို့ ပြန်ပြောင်းပါ။
+// Cloudflare တွင် KV Limit မတက်အောင် ၂ နာရီ Cache လုပ်ထားမည်
+// သို့သော် APK ကို Local Cache လုံးဝ မလုပ်ရန် တားမြစ်ထားသည် (၂ ခါမထပ်စေရန်)
 // ============================================
 
 export async function onRequestGet(context) {
@@ -27,10 +27,24 @@ export async function onRequestGet(context) {
         }
     }
 
-    // ❌ EDGE CACHE စစ်ဆေးသည့်အပိုင်းကို လုံးဝ ဖယ်ရှားထားပါသည် (TESTING အတွက်) ❌
+    // ============================================
+    // STEP 2: EDGE CACHE စစ်ဆေးခြင်း
+    // ============================================
+    const cacheUrl = new URL(request.url);
+    cacheUrl.searchParams.delete('pass'); 
+    const cacheKey = new Request(cacheUrl.toString(), { method: 'GET' });
+    const cache = caches.default;
+
+    if (!isAdmin) {
+        const cachedResponse = await cache.match(cacheKey);
+        if (cachedResponse) {
+            // Cloudflare Server ပေါ်မှာ Cache ရှိနေရင် တိုက်ရိုက်ပြန်ပေးမည် (KV ကို မခေါ်ပါ)
+            return cachedResponse; 
+        }
+    }
 
     // ============================================
-    // STEP 2: KV DATABASE မှ တိုက်ရိုက်ဖတ်ခြင်း (အမြဲတမ်း)
+    // STEP 3: KV DATABASE မှ ဖတ်ခြင်း
     // ============================================
     let responseBody;
     
@@ -51,18 +65,26 @@ export async function onRequestGet(context) {
     }
 
     // ============================================
-    // STEP 3: CACHE လုံးဝမလုပ်ရန် HEADERS သတ်မှတ်ခြင်း
+    // STEP 4: HEADERS သတ်မှတ်ခြင်း (အရေးကြီးဆုံး)
     // ============================================
     const response = new Response(responseBody, {
         headers: {
             "Content-Type": "application/json;charset=UTF-8",
             "Access-Control-Allow-Origin": "*",
-            // Cloudflare ရော, APK ပါ လုံးဝ မှတ်ဉာဏ်(Cache) မသုံးရန် အတင်းအကျပ် ပိတ်ထားသည်
-            "Cache-Control": "no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0"
+            // ရှင်းလင်းချက်:
+            // max-age=0      --> ဖုန်း (APK) ရဲ့ Storage ထဲမှာ လုံးဝ (လုံးဝ) မမှတ်ထားဖို့ အမိန့်ပေးတာပါ။ (ဒါကြောင့် ၂ ခါ မထပ်တော့ပါဘူး)
+            // s-maxage=7200  --> Cloudflare Server ပေါ်မှာတော့ စက္ကန့် ၇၂၀၀ (၂ နာရီ) မှတ်ထားဖို့ အမိန့်ပေးတာပါ။ (ဒါကြောင့် KV Limit အလွန် သက်သာသွားပါမယ်)
+            // must-revalidate--> ဖုန်းက Data ယူတိုင်း အင်တာနက်ကနေ အမြဲတမ်း အသစ်လှမ်းတောင်းဖို့ အမိန့်ပေးတာပါ။
+            "Cache-Control": isAdmin 
+                ? "no-store, no-cache, must-revalidate" 
+                : "public, max-age=0, s-maxage=7200, must-revalidate"
         }
     });
 
-    // ❌ CACHE သိမ်းသည့်အပိုင်းကိုလည်း လုံးဝ ဖယ်ရှားထားပါသည် (TESTING အတွက်) ❌
+    // Cloudflare Server (Edge Cache) ထဲကို သိမ်းမည်
+    if (!isAdmin) {
+        context.waitUntil(cache.put(cacheKey, response.clone()));
+    }
 
     return response;
 }
