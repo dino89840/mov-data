@@ -1,5 +1,6 @@
 // ============================================
 // /functions/update.js
+// Normalized cache purge — exact match အာမခံ
 // ============================================
 
 export async function onRequestPost(context) {
@@ -78,7 +79,7 @@ export async function onRequestPost(context) {
         // ============================================
         if (Array.isArray(parsedData)) {
             const showData = JSON.stringify(parsedData.slice(0, 8));
-            context.waitUntil(env.MOVIE_DB.put(`${body.genre}-show`, showData));
+            await env.MOVIE_DB.put(`${body.genre}-show`, showData);
         }
 
         // ============================================
@@ -121,42 +122,31 @@ export async function onRequestPost(context) {
 
             const sliderMovies = allMovies.slice(0, 6).map(({ _source_category, _order_index, ...clean }) => clean);
 
-            context.waitUntil(
-                env.MOVIE_DB.put("slider-movie", JSON.stringify(sliderMovies))
-            );
-            context.waitUntil(
-                env.MOVIE_DB.put("slider-movie-show", JSON.stringify(sliderMovies.slice(0, 8)))
-            );
+            await env.MOVIE_DB.put("slider-movie", JSON.stringify(sliderMovies));
+            await env.MOVIE_DB.put("slider-movie-show", JSON.stringify(sliderMovies.slice(0, 8)));
         }
 
         // ============================================
-        // EDGE CACHE PURGE — 2hr cache ဖြစ်တာကြောင့်
-        // save လုပ်တိုင်း မဖျက်ရင် APK က old data မြင်နေမယ်
+        // EDGE CACHE PURGE — NORMALIZED
+        // api.js မှာ သုံးတဲ့ cacheKey ဖော်မတ် အတိအကျတူရန်
         // ============================================
         const url = new URL(request.url);
         const baseOrigin = url.origin;
-        // ============================================
-// EDGE CACHE PURGE — အတိအကျတူအောင် ဖျက်နည်း
-// ============================================
-const cache = caches.default;
+        const cache = caches.default;
 
-// ဖျက်ရမယ့် Genre စာရင်း
-const genresToPurge = [body.genre, `${body.genre}-show` ];
-if (sliderCategories.includes(body.genre)) {
-    genresToPurge.push("slider-movie", "slider-movie-show");
-}
+        const genresToPurge = [body.genre, `${body.genre}-show`];
+        if (sliderCategories.includes(body.genre)) {
+            genresToPurge.push("slider-movie", "slider-movie-show");
+        }
 
-const purgePromises = genresToPurge.map(async (g) => {
-    // api.js မှာ သိမ်းခဲ့တဲ့ URL format အတိုင်း အတိအကျ ပြန်တည်ဆောက်တာပါ
-    const purgeUrl = new URL(`${baseOrigin}/api`);
-    purgeUrl.searchParams.set('genre', g);
-    
-    // Request Object အနေနဲ့ ဖျက်မှ cache.match နဲ့ ကိုက်ညီမှာပါ
-    return cache.delete(new Request(purgeUrl.toString()));
-});
+        const purgePromises = genresToPurge.map(async (g) => {
+            // api.js ထဲက normalizedUrl format အတိအကျ
+            const purgeUrl = new URL(baseOrigin + '/api');
+            purgeUrl.searchParams.set('genre', g);
+            return cache.delete(new Request(purgeUrl.toString(), { method: 'GET' }));
+        });
 
-await Promise.all(purgePromises);
-
+        await Promise.all(purgePromises);
 
         return new Response(JSON.stringify({ success: true, message: "Updated successfully" }), {
             status: 200,
