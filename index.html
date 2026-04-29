@@ -153,6 +153,17 @@
         .btn-save:hover { background: #2b6cb0; }
         .btn-save:disabled { background: var(--border); cursor: not-allowed; }
 
+        /* ✅ NEW: Deduplicate button */
+        .btn-dedup {
+            width: 100%;
+            background: #6b46c1;
+            color: white;
+            padding: 13px;
+            margin-bottom: 10px;
+        }
+        .btn-dedup:hover { background: #553c9a; }
+        .btn-dedup:disabled { background: var(--border); cursor: not-allowed; }
+
         .btn-logout {
             background: var(--danger);
             color: white;
@@ -264,6 +275,18 @@
             white-space: nowrap;
         }
 
+        /* ✅ NEW: Duplicate warning badge */
+        .dup-warning {
+            background: #c05621;
+            color: white;
+            padding: 4px 10px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 700;
+            white-space: nowrap;
+            display: none;
+        }
+
         .admin-header {
             display: flex;
             align-items: center;
@@ -308,6 +331,8 @@
                     <option value="">-- Category ရွေးချယ်ပါ --</option>
                 </select>
                 <span class="movie-count" id="movieCount" style="display:none">0 items</span>
+                <!-- ✅ NEW: Duplicate warning -->
+                <span class="dup-warning" id="dupWarning">⚠️ 0 dup</span>
             </div>
 
             <div class="link-card" id="linkCard">
@@ -385,6 +410,10 @@
         <div class="section">
             <h4>✏️ Manual JSON Editor</h4>
             <textarea id="jsonData" rows="12" placeholder="Category ရွေးပြီး Load လုပ်ပါ..." spellcheck="false"></textarea>
+
+            <!-- ✅ NEW: Deduplicate button -->
+            <button class="btn-dedup" id="dedupBtn">🧹 Deduplicate (ထပ်နေတဲ့ ကားတွေ ဖျက်)</button>
+
             <button class="btn-save" id="saveBtn">💾 Save All Changes</button>
         </div>
 
@@ -401,7 +430,7 @@
     // CONFIG
     // ============================================
     const SESSION_KEY = 'mva_session_v2';
-    const SESSION_TIMEOUT_MS = 4 * 60 * 60 * 1000; // 4 hours
+    const SESSION_TIMEOUT_MS = 4 * 60 * 60 * 1000;
 
     // ============================================
     // CATEGORIES
@@ -446,8 +475,7 @@
     let sessionTimer = null;
 
     // ============================================
-    // SESSION (light obfuscation — XSS မှာတော့ မလုံခြုံသေးပေမယ့်
-    // localStorage inspect ရုံနဲ့ plaintext မထွက်စေဖို့)
+    // SESSION
     // ============================================
     function obfuscate(str) {
         try {
@@ -501,12 +529,11 @@
     }
 
     // ============================================
-    // SAFE FETCH WRAPPER — auto-logout on 401
+    // SAFE FETCH
     // ============================================
     async function apiFetch(url, options) {
         const res = await fetch(url, options);
         if (res.status === 401) {
-            // Token invalid → auto logout
             setTimeout(() => {
                 showStatus('❌ Session invalid. Please login again.', '#fc8181');
                 doLogout();
@@ -527,12 +554,45 @@
     }
 
     // ============================================
+    // ✅ NEW: DUPLICATE DETECTION
+    // ============================================
+    function findDuplicates(data) {
+        if (!Array.isArray(data)) return { count: 0, keys: [] };
+        const seen = new Map();
+        const dupKeys = [];
+        data.forEach((item, i) => {
+            if (!item || typeof item !== 'object') return;
+            const key = `${(item.title || '').trim().toLowerCase()}||${(item.HD || '').trim()}`;
+            if (seen.has(key)) {
+                dupKeys.push(i);
+            } else {
+                seen.set(key, i);
+            }
+        });
+        return { count: dupKeys.length, keys: dupKeys };
+    }
+
+    function updateDupBadge(data) {
+        const badge = document.getElementById('dupWarning');
+        if (!Array.isArray(data) || data.length === 0) {
+            badge.style.display = 'none';
+            return;
+        }
+        const { count } = findDuplicates(data);
+        if (count > 0) {
+            badge.textContent = `⚠️ ${count} dup`;
+            badge.style.display = 'inline-block';
+        } else {
+            badge.style.display = 'none';
+        }
+    }
+
+    // ============================================
     // DOM READY
     // ============================================
     document.addEventListener('DOMContentLoaded', init);
 
     function init() {
-        // Populate categories
         const sel = document.getElementById('genreSelect');
         categories.forEach(cat => {
             const opt = document.createElement('option');
@@ -541,13 +601,14 @@
             sel.appendChild(opt);
         });
 
-        // Event listeners (no inline onclick — CSP friendly)
         document.getElementById('loginBtn').addEventListener('click', doLogin);
         document.getElementById('logoutBtn').addEventListener('click', doLogout);
         document.getElementById('checkBtn').addEventListener('click', checkAll);
         document.getElementById('addBtn').addEventListener('click', addToJson);
         document.getElementById('saveBtn').addEventListener('click', saveAll);
         document.getElementById('genreSelect').addEventListener('change', loadData);
+        // ✅ NEW: Deduplicate button
+        document.getElementById('dedupBtn').addEventListener('click', deduplicateJson);
 
         document.getElementById('loginPassInput').addEventListener('keydown', (e) => {
             if (e.key === 'Enter') doLogin();
@@ -556,7 +617,6 @@
             if (e.key === 'Enter') { e.preventDefault(); checkAll(); }
         });
 
-        // Restore session
         const savedPass = getSession();
         if (savedPass) {
             showMain(savedPass);
@@ -580,7 +640,6 @@
         showLoginStatus('Verifying...', '#f6ad55');
 
         try {
-            // ads-notice ကို probe — admin pass မှန်ရင် 200 ပြန်မယ်
             const res = await fetch(`/api?genre=ads-notice&pass=${encodeURIComponent(pass)}`, {
                 cache: 'no-store'
             });
@@ -624,6 +683,7 @@
         document.getElementById('genreSelect').value = '';
         document.getElementById('linkCard').style.display = 'none';
         document.getElementById('movieCount').style.display = 'none';
+        document.getElementById('dupWarning').style.display = 'none';
         document.getElementById('sessionInfo').textContent = '';
         showLoginStatus('Logged out', '#68d391');
     }
@@ -645,6 +705,7 @@
         if (!genre) {
             linkCard.style.display = 'none';
             badge.style.display = 'none';
+            document.getElementById('dupWarning').style.display = 'none';
             document.getElementById('jsonData').value = '';
             return;
         }
@@ -654,7 +715,6 @@
             return;
         }
 
-        // Link card update
         linkCard.style.display = 'block';
         document.getElementById('urlMain').textContent =
             `${window.location.origin}/api?genre=${encodeURIComponent(genre)}`;
@@ -682,15 +742,81 @@
             const data = await res.json();
             document.getElementById('jsonData').value = JSON.stringify(data, null, 2);
 
-            const count = Array.isArray(data) ? data.length : (data && typeof data === 'object' ? Object.keys(data).length : '?');
+            const count = Array.isArray(data) ? data.length :
+                (data && typeof data === 'object' ? Object.keys(data).length : '?');
             badge.textContent = `${count} items`;
             badge.style.display = 'inline-block';
 
-            showStatus(`✅ Loaded — ${count} items`, '#68d391');
+            // ✅ NEW: Duplicate detection on load
+            updateDupBadge(data);
+
+            const { count: dupCount } = findDuplicates(data);
+            if (dupCount > 0) {
+                showStatus(
+                    `✅ Loaded — ${count} items ⚠️ ${dupCount} duplicates တွေ့ရှိ! Deduplicate နှိပ်ပါ`,
+                    '#fbd38d'
+                );
+            } else {
+                showStatus(`✅ Loaded — ${count} items`, '#68d391');
+            }
+
             refreshSessionTimer();
         } catch (e) {
             showStatus('Error loading data', '#fc8181');
         }
+    }
+
+    // ============================================
+    // ✅ NEW: DEDUPLICATE
+    // ============================================
+    function deduplicateJson() {
+        const jsonField = document.getElementById('jsonData');
+        const badge = document.getElementById('movieCount');
+
+        let data;
+        try {
+            data = JSON.parse(jsonField.value || '[]');
+        } catch (e) {
+            alert('JSON မမှန်ကန်ပါ — စစ်ဆေးပါ');
+            return;
+        }
+
+        if (!Array.isArray(data)) {
+            alert('Array data မဟုတ်သောကြောင့် Deduplicate မလုပ်နိုင်ပါ');
+            return;
+        }
+
+        const before = data.length;
+        const seen = new Set();
+        const cleaned = data.filter(item => {
+            if (!item || typeof item !== 'object') return true;
+            const key = `${(item.title || '').trim().toLowerCase()}||${(item.HD || '').trim()}`;
+            if (seen.has(key)) return false;
+            seen.add(key);
+            return true;
+        });
+
+        const removed = before - cleaned.length;
+        if (removed === 0) {
+            showStatus('✅ Duplicate မရှိပါ — Data သန့်ရှင်းနေပြီ', '#68d391');
+            return;
+        }
+
+        if (!confirm(`${removed} ခု duplicate တွေ့ရှိသည်။ ဖျက်မလား?\n\nBefore: ${before} items → After: ${cleaned.length} items`)) {
+            return;
+        }
+
+        jsonField.value = JSON.stringify(cleaned, null, 2);
+        jsonField.dataset.dirty = '1';
+
+        badge.textContent = `${cleaned.length} items`;
+        badge.style.display = 'inline-block';
+        document.getElementById('dupWarning').style.display = 'none';
+
+        showStatus(
+            `🧹 ${removed} duplicates ဖျက်ပြီး — ${cleaned.length} items ကျန်တယ် — SAVE နှိပ်ပါ`,
+            '#fbd38d'
+        );
     }
 
     // ============================================
@@ -730,9 +856,7 @@
                 return;
             }
 
-            if (!res.ok) {
-                throw new Error(`HTTP ${res.status}`);
-            }
+            if (!res.ok) throw new Error(`HTTP ${res.status}`);
 
             const result = await res.json();
 
@@ -773,7 +897,6 @@
         const title = document.getElementById('mTitle').value.trim();
         if (!title) { alert('Title ထည့်ပါ'); return; }
 
-        // Optional URL validation
         const photo1 = document.getElementById('mPhoto1').value.trim();
         const photo2 = document.getElementById('mPhoto2').value.trim();
         const hd = document.getElementById('mHD').value.trim();
@@ -821,23 +944,31 @@
             return;
         }
 
+        // ✅ NEW: Duplicate check before add
+        const dupKey = `${title.trim().toLowerCase()}||${hd.trim()}`;
+        const existingKeys = data.map(item =>
+            `${(item.title || '').trim().toLowerCase()}||${(item.HD || '').trim()}`
+        );
+        if (existingKeys.includes(dupKey)) {
+            if (!confirm(`"${title}" က ဒီ category မှာ ရှိပြီးသား — ထပ်ထည့်မလား?`)) return;
+        }
+
         data.unshift(movie);
         jsonField.value = JSON.stringify(data, null, 2);
+        jsonField.dataset.dirty = '1';
 
         const badge = document.getElementById('movieCount');
         badge.textContent = `${data.length} items`;
         badge.style.display = 'inline-block';
+        updateDupBadge(data);
 
         showStatus(`✅ Added! "${title}" | ${quality} | ${year} | ⭐${rate} — SAVE နှိပ်ပါ`, '#fbd38d');
 
-        // Clear fields
         ['mTitle','mPhoto1','mPhoto2','mHD','mDesc','mRate','mYear',
          'mTime','mQuality','mSize','mTags'].forEach(id => {
             document.getElementById(id).value = '';
         });
         document.getElementById('checkResult').classList.remove('show');
-
-        // Focus back to title for fast entry
         document.getElementById('mTitle').focus();
     }
 
@@ -858,7 +989,6 @@
         if (!validGenreIds.has(genre)) { alert('Invalid category'); return; }
         if (!adminPassword) { alert('Password မရှိပါ — ထပ်မံ Login ဝင်ပါ'); return; }
 
-        // JSON validate
         let parsed;
         try {
             parsed = JSON.parse(rawData);
@@ -867,11 +997,15 @@
             return;
         }
 
-        // Confirmation for safety
         const itemCount = Array.isArray(parsed) ? parsed.length : 1;
-        if (!confirm(`"${genre}" category ထဲက ${itemCount} items တွေကို Save လုပ်မလား?`)) {
-            return;
+
+        // ✅ NEW: Duplicate warning on save
+        const { count: dupCount } = findDuplicates(parsed);
+        let confirmMsg = `"${genre}" category ထဲက ${itemCount} items တွေကို Save လုပ်မလား?`;
+        if (dupCount > 0) {
+            confirmMsg += `\n\n⚠️ ${dupCount} duplicates ရှိနေသည် — Server မှာ auto-deduplicate လုပ်ပေးပါမည်`;
         }
+        if (!confirm(confirmMsg)) return;
 
         saveBtn.disabled = true;
         saveBtn.innerHTML = '<span class="saving-spinner"></span>Saving...';
@@ -886,7 +1020,29 @@
             });
 
             if (res.ok) {
-                showStatus('✅ Successfully Saved!', '#68d391');
+                const result = await res.json().catch(() => ({}));
+                const savedCount = result.savedCount;
+                document.getElementById('dupWarning').style.display = 'none';
+
+                // ✅ Update badge with actual saved count (after dedup)
+                if (savedCount !== null && savedCount !== undefined) {
+                    const badge = document.getElementById('movieCount');
+                    badge.textContent = `${savedCount} items`;
+                    badge.style.display = 'inline-block';
+
+                    if (savedCount < itemCount) {
+                        showStatus(
+                            `✅ Saved! ${savedCount} items (${itemCount - savedCount} duplicates ဖျက်ပြီး)`,
+                            '#68d391'
+                        );
+                    } else {
+                        showStatus('✅ Successfully Saved!', '#68d391');
+                    }
+                } else {
+                    showStatus('✅ Successfully Saved!', '#68d391');
+                }
+
+                document.getElementById('jsonData').dataset.dirty = '0';
                 refreshSessionTimer();
             } else if (res.status === 401) {
                 showStatus('❌ Password မှားနေပါသည်', '#fc8181');
@@ -914,7 +1070,6 @@
         el.style.color = color;
     }
 
-    // Warn before unload if there's unsaved data in editor
     window.addEventListener('beforeunload', (e) => {
         const jsonField = document.getElementById('jsonData');
         if (adminPassword && jsonField && jsonField.value.trim() && jsonField.dataset.dirty === '1') {
@@ -927,12 +1082,6 @@
             e.target.dataset.dirty = '1';
         }
     });
-    // Save လုပ်ပြီးတိုင်း dirty flag clear
-    const origShowStatus = showStatus;
-    window.__clearDirty = () => {
-        const jf = document.getElementById('jsonData');
-        if (jf) jf.dataset.dirty = '0';
-    };
 
 })();
 </script>
