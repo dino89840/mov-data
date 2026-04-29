@@ -1,7 +1,7 @@
 // ============================================
 // /functions/api.js
-// KV Limit အပြည့်အဝ သက်သာစေရန် နှင့် 
-// APK တွင် ဇာတ်ကား ၂ ခါထပ်သည့် ပြဿနာကို ဖြေရှင်းထားသည်
+// ⚠️ TESTING MODE ⚠️ 
+// Cache အားလုံးကို လုံးဝ ပိတ်ထားပါသည်။ စမ်းသပ်ပြီးပါက မူလကုဒ်သို့ ပြန်ပြောင်းပါ။
 // ============================================
 
 export async function onRequestGet(context) {
@@ -27,23 +27,10 @@ export async function onRequestGet(context) {
         }
     }
 
-    // ============================================
-    // STEP 2: EDGE CACHE စစ်ဆေးခြင်း
-    // ============================================
-    const cacheUrl = new URL(request.url);
-    cacheUrl.searchParams.delete('pass'); 
-    const cacheKey = new Request(cacheUrl.toString(), { method: 'GET' });
-    const cache = caches.default;
-
-    if (!isAdmin) {
-        const cachedResponse = await cache.match(cacheKey);
-        if (cachedResponse) {
-            return cachedResponse; 
-        }
-    }
+    // ❌ EDGE CACHE စစ်ဆေးသည့်အပိုင်းကို လုံးဝ ဖယ်ရှားထားပါသည် (TESTING အတွက်) ❌
 
     // ============================================
-    // STEP 3: KV DATABASE မှ ဖတ်ခြင်း
+    // STEP 2: KV DATABASE မှ တိုက်ရိုက်ဖတ်ခြင်း (အမြဲတမ်း)
     // ============================================
     let responseBody;
     
@@ -64,24 +51,18 @@ export async function onRequestGet(context) {
     }
 
     // ============================================
-    // STEP 4: HEADERS သတ်မှတ်ခြင်း နှင့် CACHE သိမ်းခြင်း
-    // APK ထဲတွင် ဇာတ်ကား ၂ ခါမထပ်စေရန် Cache-Control ကို ပြင်ဆင်ထားသည်
+    // STEP 3: CACHE လုံးဝမလုပ်ရန် HEADERS သတ်မှတ်ခြင်း
     // ============================================
     const response = new Response(responseBody, {
         headers: {
             "Content-Type": "application/json;charset=UTF-8",
             "Access-Control-Allow-Origin": "*",
-            // max-age=0: ဖုန်း (APK) ကို Local မှတ်ဉာဏ် လုံးဝမသုံးခိုင်းပါ (၂ ခါမထပ်အောင် ကာကွယ်သည်)
-            // s-maxage=7200: Cloudflare Server ကိုတော့ ၂ နာရီ မှတ်ထားခိုင်းသည် (KV Limit မတက်အောင် ကာကွယ်သည်)
-            "Cache-Control": isAdmin 
-                ? "no-store, no-cache, must-revalidate" 
-                : "public, max-age=0, s-maxage=7200, must-revalidate"
+            // Cloudflare ရော, APK ပါ လုံးဝ မှတ်ဉာဏ်(Cache) မသုံးရန် အတင်းအကျပ် ပိတ်ထားသည်
+            "Cache-Control": "no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0"
         }
     });
 
-    if (!isAdmin) {
-        context.waitUntil(cache.put(cacheKey, response.clone()));
-    }
+    // ❌ CACHE သိမ်းသည့်အပိုင်းကိုလည်း လုံးဝ ဖယ်ရှားထားပါသည် (TESTING အတွက်) ❌
 
     return response;
 }
