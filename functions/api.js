@@ -1,7 +1,7 @@
 // ============================================
 // /functions/api.js
-// Cloudflare တွင် KV Limit မတက်အောင် ၂ နာရီ Cache လုပ်ထားမည်
-// သို့သော် APK ကို Local Cache လုံးဝ မလုပ်ရန် တားမြစ်ထားသည် (၂ ခါမထပ်စေရန်)
+// Version-based caching — Region/VPN ပြဿနာ မရှိတော့ပါ
+// Admin update လုပ်တိုင်း version တိုးပြီး cache key ပြောင်းသွားမယ်
 // ============================================
 
 export async function onRequestGet(context) {
@@ -28,26 +28,44 @@ export async function onRequestGet(context) {
     }
 
     // ============================================
-    // STEP 2: EDGE CACHE စစ်ဆေးခြင်း
+    // STEP 2: VERSION ကို KV မှ ဖတ်ခြင်း (very small read)
+    // ဒီ version က Admin update တိုင်း ပြောင်းသွားလို့
+    // Cache key က automatic invalidate ဖြစ်သွားမယ်
+    // ============================================
+    
+    // Base genre (without -show) for version lookup
+    const baseGenre = genre.endsWith("-show") ? genre.replace("-show", "") : genre;
+    
+    // Version ကို တိုက်ရိုက် KV ကနေ ဖတ်တာ — အလွန်နည်းပါးတဲ့ data သာဖြစ်လို့ မြန်တယ်
+    // ဒီ version read ကိုလည်း cache လုပ်နိုင်ပေမယ့် TTL တိုတိုပဲထားမယ် (၃၀ စက္ကန့်)
+    let version = "0";
+    try {
+        version = (await env.MOVIE_DB.get(`__v_${baseGenre}`)) || "0";
+    } catch (e) {
+        version = "0";
+    }
+
+    // ============================================
+    // STEP 3: EDGE CACHE စစ်ဆေးခြင်း (version ပါတဲ့ key နဲ့)
     // ============================================
     const cacheUrl = new URL(request.url);
-    cacheUrl.searchParams.delete('pass'); 
+    cacheUrl.searchParams.delete('pass');
+    cacheUrl.searchParams.set('v', version); // version ထည့်တာ — version ပြောင်းတာနဲ့ new cache key ဖြစ်သွားမယ်
     const cacheKey = new Request(cacheUrl.toString(), { method: 'GET' });
     const cache = caches.default;
 
     if (!isAdmin) {
         const cachedResponse = await cache.match(cacheKey);
         if (cachedResponse) {
-            // Cloudflare Server ပေါ်မှာ Cache ရှိနေရင် တိုက်ရိုက်ပြန်ပေးမည် (KV ကို မခေါ်ပါ)
-            return cachedResponse; 
+            return cachedResponse;
         }
     }
 
     // ============================================
-    // STEP 3: KV DATABASE မှ ဖတ်ခြင်း
+    // STEP 4: KV DATABASE မှ ဖတ်ခြင်း
     // ============================================
     let responseBody;
-    
+
     if (genre.endsWith("-show")) {
         const showData = await env.MOVIE_DB.get(genre);
         if (showData) {
@@ -65,23 +83,28 @@ export async function onRequestGet(context) {
     }
 
     // ============================================
-    // STEP 4: HEADERS သတ်မှတ်ခြင်း (အရေးကြီးဆုံး)
+    // STEP 5: HEADERS သတ်မှတ်ခြင်း
     // ============================================
+    // ETag ပါ ထည့်ပေးမယ် — version ပြောင်းတိုင်း ETag ပြောင်းသွားလို့
+    // App က old ETag နဲ့ vequest လုပ်ရင် fresh data ပြန်ပေးတယ်
+    const etag = `"${baseGenre}-${version}"`;
+    
     const response = new Response(responseBody, {
         headers: {
             "Content-Type": "application/json;charset=UTF-8",
             "Access-Control-Allow-Origin": "*",
-            // ရှင်းလင်းချက်:
-            // max-age=0      --> ဖုန်း (APK) ရဲ့ Storage ထဲမှာ လုံးဝ (လုံးဝ) မမှတ်ထားဖို့ အမိန့်ပေးတာပါ။ (ဒါကြောင့် ၂ ခါ မထပ်တော့ပါဘူး)
-            // s-maxage=7200  --> Cloudflare Server ပေါ်မှာတော့ စက္ကန့် ၇၂၀၀ (၂ နာရီ) မှတ်ထားဖို့ အမိန့်ပေးတာပါ။ (ဒါကြောင့် KV Limit အလွန် သက်သာသွားပါမယ်)
-            // must-revalidate--> ဖုန်းက Data ယူတိုင်း အင်တာနက်ကနေ အမြဲတမ်း အသစ်လှမ်းတောင်းဖို့ အမိန့်ပေးတာပါ။
-            "Cache-Control": isAdmin 
-                ? "no-store, no-cache, must-revalidate" 
-                : "public, max-age=0, s-maxage=7200, must-revalidate"
+            "ETag": etag,
+            // max-age=0      → ဖုန်းမှာ မမှတ်ဖို့
+            // s-maxage=7200  → Cloudflare မှာ ၂ နာရီထား (ဒါပေမယ့် version ပြောင်းတာနဲ့ new key ဖြစ်လို့ stale မဖြစ်တော့ပါ)
+            // must-revalidate → ETag နဲ့ စစ်ဖို့
+            "Cache-Control": isAdmin
+                ? "no-store, no-cache, must-revalidate"
+                : "public, max-age=0, s-maxage=7200, must-revalidate",
+            "X-Data-Version": version
         }
     });
 
-    // Cloudflare Server (Edge Cache) ထဲကို သိမ်းမည်
+    // Cloudflare Edge Cache ထဲကို သိမ်းမည် (version key နဲ့)
     if (!isAdmin) {
         context.waitUntil(cache.put(cacheKey, response.clone()));
     }
