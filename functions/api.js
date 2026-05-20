@@ -1,9 +1,7 @@
 // ============================================
 // /functions/api.js
-// FINAL FIX:
-// - s-maxage=3600 (KV reads သက်သာ)
-// - KV metadata timestamp → ETag ဖြင့် cache validation
-// - Admin save လုပ်တိုင်း ETag ပြောင်း → Cache auto-invalid
+// Cloudflare တွင် KV Limit မတက်အောင် ၂ နာရီ Cache လုပ်ထားမည်
+// သို့သော် APK ကို Local Cache လုံးဝ မလုပ်ရန် တားမြစ်ထားသည် (၂ ခါမထပ်စေရန်)
 // ============================================
 
 export async function onRequestGet(context) {
@@ -17,7 +15,7 @@ export async function onRequestGet(context) {
     const isAdmin = (pass && pass === SECURE_PASSWORD);
 
     // ============================================
-    // STEP 1: BROWSER BLOCK
+    // STEP 1: BROWSER BLOCK (Anti-Scraping)
     // ============================================
     if (!isAdmin) {
         const browserPatterns = /Mozilla\/|Chrome\/|Safari\/|Opera\/|Edg\/|Firefox\//i;
@@ -30,68 +28,60 @@ export async function onRequestGet(context) {
     }
 
     // ============================================
-    // STEP 2: EDGE CACHE (Normalized key)
+    // STEP 2: EDGE CACHE စစ်ဆေးခြင်း
     // ============================================
-    const baseUrl = new URL(request.url);
-    const normalizedCacheUrl = `${baseUrl.origin}/api?genre=${encodeURIComponent(genre)}`;
-    const cacheKey = new Request(normalizedCacheUrl, { method: 'GET' });
+    const cacheUrl = new URL(request.url);
+    cacheUrl.searchParams.delete('pass'); 
+    const cacheKey = new Request(cacheUrl.toString(), { method: 'GET' });
     const cache = caches.default;
 
     if (!isAdmin) {
         const cachedResponse = await cache.match(cacheKey);
         if (cachedResponse) {
-            return cachedResponse;
+            // Cloudflare Server ပေါ်မှာ Cache ရှိနေရင် တိုက်ရိုက်ပြန်ပေးမည် (KV ကို မခေါ်ပါ)
+            return cachedResponse; 
         }
     }
 
     // ============================================
-    // STEP 3: KV မှ ဖတ်ခြင်း + metadata timestamp ယူမည်
+    // STEP 3: KV DATABASE မှ ဖတ်ခြင်း
     // ============================================
     let responseBody;
-    let lastModified = Date.now().toString();
-
+    
     if (genre.endsWith("-show")) {
-        // -show key အတွက် metadata
-        const showResult = await env.MOVIE_DB.getWithMetadata(genre);
-        if (showResult.value) {
-            responseBody = showResult.value;
-            lastModified = showResult.metadata?.lastModified || lastModified;
+        const showData = await env.MOVIE_DB.get(genre);
+        if (showData) {
+            responseBody = showData;
         } else {
             const mainGenre = genre.replace("-show", "");
-            const mainResult = await env.MOVIE_DB.getWithMetadata(mainGenre);
-            lastModified = mainResult.metadata?.lastModified || lastModified;
+            const rawData = await env.MOVIE_DB.get(mainGenre);
             let list = [];
-            try { list = JSON.parse(mainResult.value || "[]"); } catch (e) { list = []; }
+            try { list = JSON.parse(rawData || "[]"); } catch (e) { list = []; }
             responseBody = JSON.stringify(list.slice(0, 8));
         }
     } else {
-        const result = await env.MOVIE_DB.getWithMetadata(genre);
-        responseBody = result.value || "[]";
-        lastModified = result.metadata?.lastModified || lastModified;
+        const data = await env.MOVIE_DB.get(genre);
+        responseBody = data || "[]";
     }
 
-    // ETag = lastModified timestamp ဖြင့် တည်ဆောက်မည်
-    const etag = `"${lastModified}"`;
-
     // ============================================
-    // STEP 4: HEADERS
-    // s-maxage=3600 → Cloudflare Edge မှာ ၁ နာရီ cache
-    // stale-while-revalidate=60 → expire ဖြစ်ပြီး ၁ မိနစ်
-    //   အတွင်း background refresh
-    // ETag → content ပြောင်းမှသာ cache invalidate
+    // STEP 4: HEADERS သတ်မှတ်ခြင်း (အရေးကြီးဆုံး)
     // ============================================
     const response = new Response(responseBody, {
         headers: {
             "Content-Type": "application/json;charset=UTF-8",
             "Access-Control-Allow-Origin": "*",
-            "ETag": etag,
-            "Last-Modified": new Date(parseInt(lastModified)).toUTCString(),
-            "Cache-Control": isAdmin
-                ? "no-store, no-cache, must-revalidate"
-                : "public, max-age=0, s-maxage=3600, stale-while-revalidate=60"
+            // ရှင်းလင်းချက်:
+            // max-age=0      --> ဖုန်း (APK) ရဲ့ Storage ထဲမှာ လုံးဝ (လုံးဝ) မမှတ်ထားဖို့ အမိန့်ပေးတာပါ။ (ဒါကြောင့် ၂ ခါ မထပ်တော့ပါဘူး)
+            // s-maxage=7200  --> Cloudflare Server ပေါ်မှာတော့ စက္ကန့် ၇၂၀၀ (၂ နာရီ) မှတ်ထားဖို့ အမိန့်ပေးတာပါ။ (ဒါကြောင့် KV Limit အလွန် သက်သာသွားပါမယ်)
+            // must-revalidate--> ဖုန်းက Data ယူတိုင်း အင်တာနက်ကနေ အမြဲတမ်း အသစ်လှမ်းတောင်းဖို့ အမိန့်ပေးတာပါ။
+            "Cache-Control": isAdmin 
+                ? "no-store, no-cache, must-revalidate" 
+                : "public, max-age=0, s-maxage=7200, must-revalidate"
         }
     });
 
+    // Cloudflare Server (Edge Cache) ထဲကို သိမ်းမည်
     if (!isAdmin) {
         context.waitUntil(cache.put(cacheKey, response.clone()));
     }
