@@ -1,14 +1,13 @@
 // ============================================
 // /functions/update.js
-// FINAL FIX:
-// - KV save သည့်အခါ lastModified timestamp metadata ထည့်မည်
-// - ETag ပြောင်းသွားသောကြောင့် Cloudflare Cache auto-invalidate
-// - cache.delete() လည်း best-effort ဆက်လုပ်မည် (double protection)
+// Admin မှ Data အသစ်တင်တိုင်း KV သို့ သိမ်းမည်
+// သိမ်းပြီးပါက User များအတွက် Cache အဟောင်းများကို ရှင်းလင်းပေးမည်
 // ============================================
 
 export async function onRequestPost(context) {
     const { env, request } = context;
 
+    // CORS Options
     if (request.method === "OPTIONS") {
         return new Response(null, {
             headers: {
@@ -23,6 +22,7 @@ export async function onRequestPost(context) {
         const body = await request.json();
         const SECURE_PASSWORD = env.ADMIN_PASSWORD;
 
+        // Password စစ်ဆေးခြင်း
         if (!body.password || body.password !== SECURE_PASSWORD) {
             return new Response(JSON.stringify({ error: "Unauthorized" }), {
                 status: 401,
@@ -30,131 +30,107 @@ export async function onRequestPost(context) {
             });
         }
 
-        if (!body.genre || typeof body.genre !== 'string' ||
-            !body.data || typeof body.data !== 'string') {
+        // Data စစ်ဆေးခြင်း
+        if (!body.genre || typeof body.genre !== 'string' || !body.data || typeof body.data !== 'string') {
             return new Response(JSON.stringify({ error: "Invalid input" }), { status: 400 });
         }
 
         let parsedData;
-        try {
-            parsedData = JSON.parse(body.data);
-        } catch (e) {
-            return new Response(JSON.stringify({ error: "Invalid JSON" }), { status: 400 });
+        try { 
+            parsedData = JSON.parse(body.data); 
+        } catch (e) { 
+            return new Response(JSON.stringify({ error: "Invalid JSON" }), { status: 400 }); 
         }
 
         // ============================================
-        // TIMESTAMP — ဒီ save operation ရဲ့ unique time
-        // KV metadata ထဲ ထည့်သိမ်းမည်
-        // api.js က ဒီ timestamp ကို ETag အဖြစ် သုံးမည်
-        // ETag ပြောင်းသွားရင် Cloudflare Cache က
-        // cache miss အဖြစ် သတ်မှတ်ပြီး KV ကို fresh ဖတ်မည်
+        // KV SAVE — Main key သိမ်းခြင်း
         // ============================================
-        const nowTs = Date.now().toString();
-        const kvMetadata = { lastModified: nowTs };
+        await env.MOVIE_DB.put(body.genre, body.data);
 
-        // ============================================
-        // KV SAVE (await + metadata)
-        // ============================================
-        await env.MOVIE_DB.put(body.genre, body.data, { metadata: kvMetadata });
-
+        // PRE-COMPUTE "-show" key
         if (Array.isArray(parsedData)) {
             const showData = JSON.stringify(parsedData.slice(0, 8));
-            await env.MOVIE_DB.put(`${body.genre}-show`, showData, { metadata: kvMetadata });
+            context.waitUntil(env.MOVIE_DB.put(`${body.genre}-show`, showData));
         }
 
         // ============================================
-        // SLIDER AUTO UPDATE
+        // SLIDER MOVIE AUTO UPDATE
         // ============================================
         const sliderCategories = [
-            "jav-mmsub", "jav-nosub", "usa-mmsub", "usa-nosub",
+            "jav-mmsub", "jav-nosub", "usa-mmsub", "usa-nosub", 
             "chinese-mmsub", "chinese-nosub", "yoteshin"
         ];
-
+        
         if (sliderCategories.includes(body.genre)) {
             const otherCats = sliderCategories.filter(c => c !== body.genre);
-
+            
             const otherFetches = otherCats.map(async (cat) => {
                 const catData = await env.MOVIE_DB.get(cat);
                 let movies = [];
                 try { movies = JSON.parse(catData || "[]"); } catch (e) {}
-                return movies.slice(0, 3).map((movie, index) => ({
-                    ...movie,
-                    _source_category: cat,
-                    _order_index: index
+                return movies.slice(0, 3).map((movie, index) => ({ 
+                    ...movie, _source_category: cat, _order_index: index 
                 }));
             });
 
             const currentMovies = (Array.isArray(parsedData) ? parsedData : [])
-                .slice(0, 3).map((m, i) => ({
-                    ...m,
-                    _source_category: body.genre,
-                    _order_index: i
-                }));
-
+                .slice(0, 3).map((m, i) => ({ ...m, _source_category: body.genre, _order_index: i }));
+            
             const otherResults = await Promise.all(otherFetches);
             const allMovies = [...currentMovies];
             otherResults.forEach(catMovies => allMovies.push(...catMovies));
+            
             allMovies.sort((a, b) => a._order_index - b._order_index);
+            const sliderMovies = allMovies.slice(0, 6).map(({ _source_category, _order_index, ...clean }) => clean);
 
-            const sliderMovies = allMovies
-                .slice(0, 6)
-                .map(({ _source_category, _order_index, ...clean }) => clean);
-
-            // Slider KV save + metadata timestamp (await)
-            await env.MOVIE_DB.put("slider-movie", JSON.stringify(sliderMovies), { metadata: kvMetadata });
-            await env.MOVIE_DB.put("slider-movie-show", JSON.stringify(sliderMovies.slice(0, 8)), { metadata: kvMetadata });
+            context.waitUntil(env.MOVIE_DB.put("slider-movie", JSON.stringify(sliderMovies)));
+            context.waitUntil(env.MOVIE_DB.put("slider-movie-show", JSON.stringify(sliderMovies.slice(0, 8))));
         }
 
         // ============================================
-        // CACHE PURGE (Best-effort — double protection)
-        // ETag method က main protection
-        // cache.delete() က additional attempt
+        // EDGE CACHE PURGE (အရေးကြီးသည်)
+        // Admin က Data အသစ်တင်လိုက်လို့ Cache အဟောင်းတွေကို ဖျက်ပေးခြင်း
         // ============================================
         const url = new URL(request.url);
         const baseOrigin = url.origin;
         const cache = caches.default;
-
-        const purgeUrls = [
-            `${baseOrigin}/api?genre=${encodeURIComponent(body.genre)}`,
-            `${baseOrigin}/api?genre=${encodeURIComponent(body.genre)}-show`
+        
+        const purgeUrls = [ 
+            `${baseOrigin}/api?genre=${body.genre}`, 
+            `${baseOrigin}/api?genre=${body.genre}-show` 
         ];
-
+        
         if (sliderCategories.includes(body.genre)) {
             purgeUrls.push(`${baseOrigin}/api?genre=slider-movie`);
             purgeUrls.push(`${baseOrigin}/api?genre=slider-movie-show`);
         }
+        
+        // Cache များကို နောက်ကွယ်တွင် ဖျက်မည်
+        context.waitUntil(Promise.all(purgeUrls.map(u => cache.delete(new Request(u)))));
 
-        context.waitUntil(
-            Promise.all(purgeUrls.map(u =>
-                cache.delete(new Request(u)).catch(() => {})
-            ))
-        );
-
-        return new Response(JSON.stringify({
-            success: true,
-            message: "Updated successfully"
-        }), {
-            status: 200,
-            headers: {
-                "Content-Type": "application/json",
-                "Access-Control-Allow-Origin": "*"
+        // အောင်မြင်ကြောင်း ပြန်ပို့မည်
+        return new Response(JSON.stringify({ success: true, message: "Updated successfully" }), {
+            status: 200, 
+            headers: { 
+                "Content-Type": "application/json", 
+                "Access-Control-Allow-Origin": "*" 
             }
         });
 
     } catch (e) {
-        return new Response(JSON.stringify({ error: "Server error: " + e.message }), {
-            status: 500,
-            headers: { "Content-Type": "application/json" }
+        return new Response(JSON.stringify({ error: "Server error" }), { 
+            status: 500, 
+            headers: { "Content-Type": "application/json" } 
         });
     }
 }
 
 export async function onRequestOptions() {
-    return new Response(null, {
-        headers: {
-            "Access-Control-Allow-Origin": "*",
-            "Access-Control-Allow-Methods": "POST, OPTIONS",
-            "Access-Control-Allow-Headers": "Content-Type"
-        }
+    return new Response(null, { 
+        headers: { 
+            "Access-Control-Allow-Origin": "*", 
+            "Access-Control-Allow-Methods": "POST, OPTIONS", 
+            "Access-Control-Allow-Headers": "Content-Type" 
+        } 
     });
 }
