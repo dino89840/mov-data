@@ -1,7 +1,9 @@
 // ============================================
 // /functions/api.js
-// Version-based caching — Region/VPN ပြဿနာ မရှိတော့ပါ
-// Admin update လုပ်တိုင်း version တိုးပြီး cache key ပြောင်းသွားမယ်
+// FINAL FIX:
+// - s-maxage=3600 (KV reads သက်သာ)
+// - KV metadata timestamp → ETag ဖြင့် cache validation
+// - Admin save လုပ်တိုင်း ETag ပြောင်း → Cache auto-invalid
 // ============================================
 
 export async function onRequestGet(context) {
@@ -15,7 +17,7 @@ export async function onRequestGet(context) {
     const isAdmin = (pass && pass === SECURE_PASSWORD);
 
     // ============================================
-    // STEP 1: BROWSER BLOCK (Anti-Scraping)
+    // STEP 1: BROWSER BLOCK
     // ============================================
     if (!isAdmin) {
         const browserPatterns = /Mozilla\/|Chrome\/|Safari\/|Opera\/|Edg\/|Firefox\//i;
@@ -28,30 +30,11 @@ export async function onRequestGet(context) {
     }
 
     // ============================================
-    // STEP 2: VERSION ကို KV မှ ဖတ်ခြင်း (very small read)
-    // ဒီ version က Admin update တိုင်း ပြောင်းသွားလို့
-    // Cache key က automatic invalidate ဖြစ်သွားမယ်
+    // STEP 2: EDGE CACHE (Normalized key)
     // ============================================
-    
-    // Base genre (without -show) for version lookup
-    const baseGenre = genre.endsWith("-show") ? genre.replace("-show", "") : genre;
-    
-    // Version ကို တိုက်ရိုက် KV ကနေ ဖတ်တာ — အလွန်နည်းပါးတဲ့ data သာဖြစ်လို့ မြန်တယ်
-    // ဒီ version read ကိုလည်း cache လုပ်နိုင်ပေမယ့် TTL တိုတိုပဲထားမယ် (၃၀ စက္ကန့်)
-    let version = "0";
-    try {
-        version = (await env.MOVIE_DB.get(`__v_${baseGenre}`)) || "0";
-    } catch (e) {
-        version = "0";
-    }
-
-    // ============================================
-    // STEP 3: EDGE CACHE စစ်ဆေးခြင်း (version ပါတဲ့ key နဲ့)
-    // ============================================
-    const cacheUrl = new URL(request.url);
-    cacheUrl.searchParams.delete('pass');
-    cacheUrl.searchParams.set('v', version); // version ထည့်တာ — version ပြောင်းတာနဲ့ new cache key ဖြစ်သွားမယ်
-    const cacheKey = new Request(cacheUrl.toString(), { method: 'GET' });
+    const baseUrl = new URL(request.url);
+    const normalizedCacheUrl = `${baseUrl.origin}/api?genre=${encodeURIComponent(genre)}`;
+    const cacheKey = new Request(normalizedCacheUrl, { method: 'GET' });
     const cache = caches.default;
 
     if (!isAdmin) {
@@ -62,49 +45,53 @@ export async function onRequestGet(context) {
     }
 
     // ============================================
-    // STEP 4: KV DATABASE မှ ဖတ်ခြင်း
+    // STEP 3: KV မှ ဖတ်ခြင်း + metadata timestamp ယူမည်
     // ============================================
     let responseBody;
+    let lastModified = Date.now().toString();
 
     if (genre.endsWith("-show")) {
-        const showData = await env.MOVIE_DB.get(genre);
-        if (showData) {
-            responseBody = showData;
+        // -show key အတွက် metadata
+        const showResult = await env.MOVIE_DB.getWithMetadata(genre);
+        if (showResult.value) {
+            responseBody = showResult.value;
+            lastModified = showResult.metadata?.lastModified || lastModified;
         } else {
             const mainGenre = genre.replace("-show", "");
-            const rawData = await env.MOVIE_DB.get(mainGenre);
+            const mainResult = await env.MOVIE_DB.getWithMetadata(mainGenre);
+            lastModified = mainResult.metadata?.lastModified || lastModified;
             let list = [];
-            try { list = JSON.parse(rawData || "[]"); } catch (e) { list = []; }
+            try { list = JSON.parse(mainResult.value || "[]"); } catch (e) { list = []; }
             responseBody = JSON.stringify(list.slice(0, 8));
         }
     } else {
-        const data = await env.MOVIE_DB.get(genre);
-        responseBody = data || "[]";
+        const result = await env.MOVIE_DB.getWithMetadata(genre);
+        responseBody = result.value || "[]";
+        lastModified = result.metadata?.lastModified || lastModified;
     }
 
+    // ETag = lastModified timestamp ဖြင့် တည်ဆောက်မည်
+    const etag = `"${lastModified}"`;
+
     // ============================================
-    // STEP 5: HEADERS သတ်မှတ်ခြင်း
+    // STEP 4: HEADERS
+    // s-maxage=3600 → Cloudflare Edge မှာ ၁ နာရီ cache
+    // stale-while-revalidate=60 → expire ဖြစ်ပြီး ၁ မိနစ်
+    //   အတွင်း background refresh
+    // ETag → content ပြောင်းမှသာ cache invalidate
     // ============================================
-    // ETag ပါ ထည့်ပေးမယ် — version ပြောင်းတိုင်း ETag ပြောင်းသွားလို့
-    // App က old ETag နဲ့ vequest လုပ်ရင် fresh data ပြန်ပေးတယ်
-    const etag = `"${baseGenre}-${version}"`;
-    
     const response = new Response(responseBody, {
         headers: {
             "Content-Type": "application/json;charset=UTF-8",
             "Access-Control-Allow-Origin": "*",
             "ETag": etag,
-            // max-age=0      → ဖုန်းမှာ မမှတ်ဖို့
-            // s-maxage=7200  → Cloudflare မှာ ၂ နာရီထား (ဒါပေမယ့် version ပြောင်းတာနဲ့ new key ဖြစ်လို့ stale မဖြစ်တော့ပါ)
-            // must-revalidate → ETag နဲ့ စစ်ဖို့
+            "Last-Modified": new Date(parseInt(lastModified)).toUTCString(),
             "Cache-Control": isAdmin
                 ? "no-store, no-cache, must-revalidate"
-                : "public, max-age=0, s-maxage=7200, must-revalidate",
-            "X-Data-Version": version
+                : "public, max-age=0, s-maxage=3600, stale-while-revalidate=60"
         }
     });
 
-    // Cloudflare Edge Cache ထဲကို သိမ်းမည် (version key နဲ့)
     if (!isAdmin) {
         context.waitUntil(cache.put(cacheKey, response.clone()));
     }
