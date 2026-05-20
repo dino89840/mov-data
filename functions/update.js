@@ -1,14 +1,14 @@
 // ============================================
 // /functions/update.js
-// Admin update တိုင်း version တိုးပေးမယ်
-// → User တွေအတွက် cache key က automatic ပြောင်းသွားလို့
-// → VPN/Region မရွေး instant update ဖြစ်သွားမယ်
+// FINAL FIX:
+// - KV save သည့်အခါ lastModified timestamp metadata ထည့်မည်
+// - ETag ပြောင်းသွားသောကြောင့် Cloudflare Cache auto-invalidate
+// - cache.delete() လည်း best-effort ဆက်လုပ်မည် (double protection)
 // ============================================
 
 export async function onRequestPost(context) {
     const { env, request } = context;
 
-    // CORS Options
     if (request.method === "OPTIONS") {
         return new Response(null, {
             headers: {
@@ -23,7 +23,6 @@ export async function onRequestPost(context) {
         const body = await request.json();
         const SECURE_PASSWORD = env.ADMIN_PASSWORD;
 
-        // Password စစ်ဆေးခြင်း
         if (!body.password || body.password !== SECURE_PASSWORD) {
             return new Response(JSON.stringify({ error: "Unauthorized" }), {
                 status: 401,
@@ -31,8 +30,8 @@ export async function onRequestPost(context) {
             });
         }
 
-        // Data စစ်ဆေးခြင်း
-        if (!body.genre || typeof body.genre !== 'string' || !body.data || typeof body.data !== 'string') {
+        if (!body.genre || typeof body.genre !== 'string' ||
+            !body.data || typeof body.data !== 'string') {
             return new Response(JSON.stringify({ error: "Invalid input" }), { status: 400 });
         }
 
@@ -44,25 +43,27 @@ export async function onRequestPost(context) {
         }
 
         // ============================================
-        // KV SAVE — Main key
+        // TIMESTAMP — ဒီ save operation ရဲ့ unique time
+        // KV metadata ထဲ ထည့်သိမ်းမည်
+        // api.js က ဒီ timestamp ကို ETag အဖြစ် သုံးမည်
+        // ETag ပြောင်းသွားရင် Cloudflare Cache က
+        // cache miss အဖြစ် သတ်မှတ်ပြီး KV ကို fresh ဖတ်မည်
         // ============================================
-        await env.MOVIE_DB.put(body.genre, body.data);
+        const nowTs = Date.now().toString();
+        const kvMetadata = { lastModified: nowTs };
 
         // ============================================
-        // VERSION BUMP — အရေးကြီးဆုံး
-        // Version တိုးလိုက်တာနဲ့ user တွေအတွက် cache key အသစ် ဖြစ်သွားမယ်
+        // KV SAVE (await + metadata)
         // ============================================
-        const newVersion = Date.now().toString();
-        await env.MOVIE_DB.put(`__v_${body.genre}`, newVersion);
+        await env.MOVIE_DB.put(body.genre, body.data, { metadata: kvMetadata });
 
-        // PRE-COMPUTE "-show" key
         if (Array.isArray(parsedData)) {
             const showData = JSON.stringify(parsedData.slice(0, 8));
-            context.waitUntil(env.MOVIE_DB.put(`${body.genre}-show`, showData));
+            await env.MOVIE_DB.put(`${body.genre}-show`, showData, { metadata: kvMetadata });
         }
 
         // ============================================
-        // SLIDER MOVIE AUTO UPDATE
+        // SLIDER AUTO UPDATE
         // ============================================
         const sliderCategories = [
             "jav-mmsub", "jav-nosub", "usa-mmsub", "usa-nosub",
@@ -77,40 +78,45 @@ export async function onRequestPost(context) {
                 let movies = [];
                 try { movies = JSON.parse(catData || "[]"); } catch (e) {}
                 return movies.slice(0, 3).map((movie, index) => ({
-                    ...movie, _source_category: cat, _order_index: index
+                    ...movie,
+                    _source_category: cat,
+                    _order_index: index
                 }));
             });
 
             const currentMovies = (Array.isArray(parsedData) ? parsedData : [])
-                .slice(0, 3).map((m, i) => ({ ...m, _source_category: body.genre, _order_index: i }));
+                .slice(0, 3).map((m, i) => ({
+                    ...m,
+                    _source_category: body.genre,
+                    _order_index: i
+                }));
 
             const otherResults = await Promise.all(otherFetches);
             const allMovies = [...currentMovies];
             otherResults.forEach(catMovies => allMovies.push(...catMovies));
-
             allMovies.sort((a, b) => a._order_index - b._order_index);
-            const sliderMovies = allMovies.slice(0, 6).map(({ _source_category, _order_index, ...clean }) => clean);
 
-            await env.MOVIE_DB.put("slider-movie", JSON.stringify(sliderMovies));
-            await env.MOVIE_DB.put("slider-movie-show", JSON.stringify(sliderMovies.slice(0, 8)));
-            
-            // Slider version ကိုပါ bump လုပ်ပေးမယ်
-            await env.MOVIE_DB.put(`__v_slider-movie`, newVersion);
+            const sliderMovies = allMovies
+                .slice(0, 6)
+                .map(({ _source_category, _order_index, ...clean }) => clean);
+
+            // Slider KV save + metadata timestamp (await)
+            await env.MOVIE_DB.put("slider-movie", JSON.stringify(sliderMovies), { metadata: kvMetadata });
+            await env.MOVIE_DB.put("slider-movie-show", JSON.stringify(sliderMovies.slice(0, 8)), { metadata: kvMetadata });
         }
 
         // ============================================
-        // EDGE CACHE PURGE (Local data center only — but it's OK now)
-        // Version system ကြောင့် ဒီ purge က မရှိမဖြစ်တော့မဟုတ်ပါ
-        // ဒါပေမယ့် local data center အတွက် bonus speedup ဖြစ်စေတယ်
+        // CACHE PURGE (Best-effort — double protection)
+        // ETag method က main protection
+        // cache.delete() က additional attempt
         // ============================================
         const url = new URL(request.url);
         const baseOrigin = url.origin;
         const cache = caches.default;
 
-        // Old version cache keys (best-effort delete)
         const purgeUrls = [
-            `${baseOrigin}/api?genre=${body.genre}`,
-            `${baseOrigin}/api?genre=${body.genre}-show`
+            `${baseOrigin}/api?genre=${encodeURIComponent(body.genre)}`,
+            `${baseOrigin}/api?genre=${encodeURIComponent(body.genre)}-show`
         ];
 
         if (sliderCategories.includes(body.genre)) {
@@ -118,13 +124,15 @@ export async function onRequestPost(context) {
             purgeUrls.push(`${baseOrigin}/api?genre=slider-movie-show`);
         }
 
-        context.waitUntil(Promise.all(purgeUrls.map(u => cache.delete(new Request(u)))));
+        context.waitUntil(
+            Promise.all(purgeUrls.map(u =>
+                cache.delete(new Request(u)).catch(() => {})
+            ))
+        );
 
-        // အောင်မြင်ကြောင်း ပြန်ပို့မည်
         return new Response(JSON.stringify({
             success: true,
-            message: "Updated successfully",
-            version: newVersion
+            message: "Updated successfully"
         }), {
             status: 200,
             headers: {
